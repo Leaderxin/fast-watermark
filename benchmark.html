@@ -86,13 +86,6 @@
             background-color: #007bff;
             transition: width 0.3s;
         }
-        .canvas-container {
-            width: 100%;
-            height: 300px;
-            margin: 20px 0;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-        }
         .log {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
@@ -129,7 +122,7 @@
             width: 150px;
             font-weight: bold;
         }
-        input[type="number"], input[type="range"] {
+        input[type="number"], input[type="range"], select {
             padding: 5px;
             border: 1px solid #ddd;
             border-radius: 3px;
@@ -153,7 +146,7 @@
 <body>
     <div class="container">
         <h1>🚀 Watermark Plus 性能测试</h1>
-        <p>选择本地图片进行水印处理性能测试</p>
+        <p>选择本地图片进行水印处理性能测试，支持单线程和多线程对比</p>
         
         <div class="stats">
             <div class="stat-card">
@@ -176,6 +169,14 @@
         
         <div class="config-section">
             <h2>⚙️ 测试配置</h2>
+            <div class="config-item">
+                <label>测试模式:</label>
+                <select id="testMode" style="padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
+                    <option value="single">单线程（主线程）</option>
+                    <option value="multi">多线程（Web Workers）</option>
+                    <option value="compare">对比测试</option>
+                </select>
+            </div>
             <div class="config-item">
                 <label>测试次数:</label>
                 <input type="number" id="iterations" value="5" min="1" max="20">
@@ -206,6 +207,11 @@
             <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
         </div>
         
+        <div id="workerStatus" style="display: none; background-color: #e3f2fd; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>🔧 Worker池状态:</strong>
+            <span id="workerInfo">初始化中...</span>
+        </div>
+        
         <div class="progress">
             <div class="progress-bar" id="progressBar" style="width: 0%"></div>
         </div>
@@ -227,11 +233,20 @@
     </div>
 
     <script type="module">
-        import { init, addWatermark, createImageWatermarkConfig, renderTextToImage } from './index.js';
+        import { 
+            init, 
+            addWatermark, 
+            addWatermarkWithWorkers,
+            initWorkerPool,
+            getWorkerPoolStatus,
+            createImageWatermarkConfig, 
+            renderTextToImage 
+        } from './index.js';
 
         let testImage = null;
         let watermarkImage = null;
         let isInitialized = false;
+        let workerPoolInitialized = false;
 
         // 初始化
         async function initialize() {
@@ -240,13 +255,43 @@
                 isInitialized = true;
                 log('WASM模块初始化完成', 'success');
             }
+            
+            // 初始化Worker池
+            const testMode = document.getElementById('testMode').value;
+            if (testMode === 'multi' || testMode === 'compare') {
+                if (!workerPoolInitialized) {
+                    try {
+                        await initWorkerPool();
+                        workerPoolInitialized = true;
+                        log('Worker池初始化完成', 'success');
+                        updateWorkerStatus();
+                    } catch (error) {
+                        log(`Worker池初始化失败: ${error.message}`, 'error');
+                    }
+                }
+            }
         }
-
+        
+        // 更新Worker池状态
+        function updateWorkerStatus() {
+            const statusDiv = document.getElementById('workerStatus');
+            const infoSpan = document.getElementById('workerInfo');
+            
+            if (!workerPoolInitialized) {
+                statusDiv.style.display = 'none';
+                return;
+            }
+            
+            statusDiv.style.display = 'block';
+            const status = getWorkerPoolStatus();
+            infoSpan.textContent = `Worker数: ${status.workerCount} | 活跃: ${status.activeWorkers} | 队列: ${status.queueLength}`;
+        }
+        
         // 选择测试图片
         function selectTestImage() {
             document.getElementById('imageInput').click();
         }
-
+        
         // 处理图片选择
         async function handleImageSelect(event) {
             const file = event.target.files[0];
@@ -284,7 +329,8 @@
                 log(`图片加载失败: ${error.message}`, 'error');
             }
         }
-
+                
+        
         // 生成水印图片
         function generateWatermarkImage() {
             const canvas = document.createElement('canvas');
@@ -305,7 +351,7 @@
             watermarkImage = canvas.toDataURL('image/png');
             log('水印图片生成完成', 'success');
         }
-
+        
         // 开始性能测试
         async function startBenchmark() {
             await initialize();
@@ -315,16 +361,29 @@
                 return;
             }
             
+            const testMode = document.getElementById('testMode').value;
+            
+            if (testMode === 'compare') {
+                await runComparisonTest();
+            } else {
+                await runSingleTest(testMode);
+            }
+        }
+        
+        // 运行单线程或多线程测试
+        async function runSingleTest(mode) {
             const iterations = parseInt(document.getElementById('iterations').value);
             const transparency = parseFloat(document.getElementById('transparency').value);
             const xOffset = parseInt(document.getElementById('xOffset').value);
             const yOffset = parseInt(document.getElementById('yOffset').value);
             const rotate = parseInt(document.getElementById('rotate').value);
             
-            log(`开始性能测试，共 ${iterations} 次迭代...`, 'info');
+            const modeName = mode === 'single' ? '单线程' : '多线程';
+            log(`开始${modeName}性能测试，共 ${iterations} 次迭代...`, 'info');
             
             const times = [];
             const progressBar = document.getElementById('progressBar');
+            const addWatermarkFunc = mode === 'single' ? addWatermark : addWatermarkWithWorkers;
             
             for (let i = 0; i < iterations; i++) {
                 const startTime = performance.now();
@@ -339,7 +398,7 @@
                         tile: true
                     });
                     
-                    const result = await addWatermark(testImage, config);
+                    const result = await addWatermarkFunc(testImage, config);
                     
                     const endTime = performance.now();
                     const duration = endTime - startTime;
@@ -350,9 +409,9 @@
                         displayResult(result);
                     }
                     
-                    log(`第 ${i + 1} 次测试完成，耗时: ${duration.toFixed(2)} ms`, 'success');
+                    log(`第${i + 1}次测试完成，耗时: ${duration.toFixed(2)} ms`, 'success');
                 } catch (error) {
-                    log(`第 ${i + 1} 次测试失败: ${error.message}`, 'error');
+                    log(`第${i + 1}次测试失败: ${error.message}`, 'error');
                 }
                 
                 // 更新进度条
@@ -375,14 +434,75 @@
                 document.getElementById('maxTime').textContent = maxTime.toFixed(2);
                 document.getElementById('throughput').textContent = throughput.toFixed(2);
                 
-                log(`性能测试完成！`, 'success');
+                log(`${modeName}性能测试完成！`, 'success');
                 log(`平均耗时: ${avgTime.toFixed(2)} ms`, 'info');
                 log(`最快耗时: ${minTime.toFixed(2)} ms`, 'info');
                 log(`最慢耗时: ${maxTime.toFixed(2)} ms`, 'info');
                 log(`吞吐量: ${throughput.toFixed(2)} MB/s`, 'info');
             }
         }
-
+        
+        // 运行对比测试
+        async function runComparisonTest() {
+            const iterations = parseInt(document.getElementById('iterations').value);
+            const transparency = parseFloat(document.getElementById('transparency').value);
+            const xOffset = parseInt(document.getElementById('xOffset').value);
+            const yOffset = parseInt(document.getElementById('yOffset').value);
+            const rotate = parseInt(document.getElementById('rotate').value);
+            
+            log('开始对比测试（单线程 vs 多线程）...', 'info');
+            
+            const config = createImageWatermarkConfig({
+                imageData: watermarkImage,
+                transparency: transparency,
+                rotate: rotate,
+                xOffset: xOffset,
+                yOffset: yOffset,
+                tile: true
+            });
+            
+            // 单线程测试
+            log('--- 单线程测试 ---', 'info');
+            const singleTimes = [];
+            for (let i = 0; i < iterations; i++) {
+                const startTime = performance.now();
+                const result = await addWatermark(testImage, config);
+                const duration = performance.now() - startTime;
+                singleTimes.push(duration);
+                log(`单线程第${i + 1}次: ${duration.toFixed(2)} ms`, 'info');
+            }
+            
+            // 多线程测试
+            log('--- 多线程测试 ---', 'info');
+            const multiTimes = [];
+            for (let i = 0; i < iterations; i++) {
+                const startTime = performance.now();
+                const result = await addWatermarkWithWorkers(testImage, config);
+                const duration = performance.now() - startTime;
+                multiTimes.push(duration);
+                log(`多线程第${i + 1}次: ${duration.toFixed(2)} ms`, 'info');
+            }
+            
+            // 计算统计数据
+            const singleAvg = singleTimes.reduce((a, b) => a + b, 0) / singleTimes.length;
+            const multiAvg = multiTimes.reduce((a, b) => a + b, 0) / multiTimes.length;
+            const improvement = ((singleAvg - multiAvg) / singleAvg * 100);
+            
+            document.getElementById('avgTime').textContent = multiAvg.toFixed(2);
+            document.getElementById('minTime').textContent = Math.min(...multiTimes).toFixed(2);
+            document.getElementById('maxTime').textContent = Math.max(...multiTimes).toFixed(2);
+            
+            const imageSizeMB = testImage.size / 1024 / 1024;
+            const throughput = imageSizeMB / (multiAvg / 1000);
+            document.getElementById('throughput').textContent = throughput.toFixed(2);
+            
+            log('--- 对比结果 ---', 'success');
+            log(`单线程平均耗时: ${singleAvg.toFixed(2)} ms`, 'info');
+            log(`多线程平均耗时: ${multiAvg.toFixed(2)} ms`, 'info');
+            log(`性能提升: ${improvement.toFixed(1)}%`, improvement > 0 ? 'success' : 'error');
+            log(`多线程吞吐量: ${throughput.toFixed(2)} MB/s`, 'info');
+        }
+        
         // 显示结果
         async function displayResult(blob) {
             const img = new Image();
@@ -390,12 +510,12 @@
                 const canvas = document.getElementById('resultCanvas');
                 canvas.width = 400;
                 canvas.height = 400;
-                const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, 400, 400);
             };
             img.src = URL.createObjectURL(blob);
         }
-
+        
         // 日志功能
         function log(message, type = 'info') {
             const logDiv = document.getElementById('logLog');
@@ -405,17 +525,37 @@
             logDiv.appendChild(entry);
             logDiv.scrollTop = logDiv.scrollHeight;
         }
-
+        
         // 清空日志
         function clearLog() {
             document.getElementById('logLog').innerHTML = '';
         }
-
+        
         // 透明度滑块更新
         document.getElementById('transparency').addEventListener('input', (e) => {
             document.getElementById('transparencyValue').textContent = e.target.value;
         });
-
+        
+        // 测试模式切换
+        document.getElementById('testMode').addEventListener('change', async (e) => {
+            const mode = e.target.value;
+            if (mode === 'multi' || mode === 'compare') {
+                if (!workerPoolInitialized) {
+                    try {
+                        await initWorkerPool();
+                        workerPoolInitialized = true;
+                        log('Worker池初始化完成', 'success');
+                        updateWorkerStatus();
+                    } catch (error) {
+                        log(`Worker池初始化失败: ${error.message}`, 'error');
+                    }
+                }
+                updateWorkerStatus();
+            } else {
+                document.getElementById('workerStatus').style.display = 'none';
+            }
+        });
+        
         // 暴露函数到全局作用域
         window.startBenchmark = startBenchmark;
         window.selectTestImage = selectTestImage;

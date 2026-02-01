@@ -336,6 +336,157 @@ const wasmFunctions = {
   }
 };
 
+// Web Worker池管理器
+let workerPool = null;
+let workerPoolInitialized = false;
+
+/**
+ * 初始化Worker池
+ * @param {number} [maxWorkers] - 最大Worker数量，默认为CPU核心数
+ * @returns {Promise<void>}
+ */
+async function initWorkerPool(maxWorkers) {
+  if (workerPoolInitialized) {
+    return;
+  }
+
+  try {
+    // 动态导入Worker池
+    const { WorkerPool } = await import('./worker-pool.js');
+    workerPool = new WorkerPool('./watermark-worker.js', maxWorkers);
+    await workerPool.init();
+    workerPoolInitialized = true;
+  } catch (error) {
+    console.error('Failed to initialize worker pool:', error);
+    throw new Error(`Worker pool initialization failed: ${error.message}`);
+  }
+}
+
+/**
+ * 确保Worker池已初始化
+ * @private
+ */
+async function ensureWorkerPoolInitialized() {
+  if (!workerPoolInitialized) {
+    await initWorkerPool();
+  }
+}
+
+/**
+ * 使用Worker池添加水印（多线程）
+ * @param {File|Blob|ArrayBuffer|Uint8Array} image - 图片数据
+ * @param {Object} config - 水印配置
+ * @returns {Promise<Blob>} 处理后的图片Blob
+ */
+async function addWatermarkWithWorkers(image, config) {
+  await ensureWorkerPoolInitialized();
+
+  if (!image) {
+    throw new Error('Image data is required');
+  }
+
+  if (!config) {
+    throw new Error('Watermark config is required');
+  }
+
+  // 如果是文字水印且没有image_data，先渲染文字为图片
+  if (config.type === 'text' && !config.image_data) {
+    config = {
+      ...config,
+      image_data: renderTextToImage(config.text, config)
+    };
+  }
+
+  try {
+    // 转换图片数据
+    const imageBytes = await imageToUint8Array(image);
+
+    // 使用Worker池处理
+    const resultBytes = await workerPool.addTask(imageBytes, config);
+
+    // 转换为Blob
+    return uint8ArrayToBlob(resultBytes, 'image/png');
+  } catch (error) {
+    console.error('Failed to add watermark with workers:', error);
+    throw new Error(`Watermark processing failed: ${error.message}`);
+  }
+}
+
+/**
+ * 批量处理多个图片（多线程）
+ * @param {Array<File|Blob|ArrayBuffer|Uint8Array>} images - 图片数组
+ * @param {Object} config - 水印配置
+ * @returns {Promise<Array<Blob>>} 处理后的图片Blob数组
+ */
+async function addWatermarkBatch(images, config) {
+  await ensureWorkerPoolInitialized();
+
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    throw new Error('Images array is required');
+  }
+
+  if (!config) {
+    throw new Error('Watermark config is required');
+  }
+
+  // 如果是文字水印且没有image_data，先渲染文字为图片
+  if (config.type === 'text' && !config.image_data) {
+    config = {
+      ...config,
+      image_data: renderTextToImage(config.text, config)
+    };
+  }
+
+  try {
+    // 转换所有图片数据
+    const imageBytesArray = await Promise.all(
+      images.map(img => imageToUint8Array(img))
+    );
+
+    // 使用Worker池批量处理
+    const resultBytesArray = await workerPool.processBatch(imageBytesArray, config);
+
+    // 转换为Blob数组
+    return resultBytesArray.map(bytes => uint8ArrayToBlob(bytes, 'image/png'));
+  } catch (error) {
+    console.error('Failed to add watermark batch:', error);
+    throw new Error(`Batch watermark processing failed: ${error.message}`);
+  }
+}
+
+/**
+ * 关闭Worker池
+ */
+function terminateWorkerPool() {
+  if (workerPool) {
+    workerPool.terminate();
+    workerPool = null;
+    workerPoolInitialized = false;
+  }
+}
+
+/**
+ * 获取Worker池状态
+ * @returns {Object} Worker池状态信息
+ */
+function getWorkerPoolStatus() {
+  if (!workerPool) {
+    return {
+      initialized: false,
+      workerCount: 0,
+      activeWorkers: 0,
+      queueLength: 0
+    };
+  }
+
+  return {
+    initialized: workerPoolInitialized,
+    workerCount: workerPool.getWorkerCount(),
+    activeWorkers: workerPool.getActiveWorkerCount(),
+    queueLength: workerPool.getQueueLength()
+  };
+}
+
 // 导出所有功能
 export {
   // 初始化
@@ -345,6 +496,13 @@ export {
   // 主要功能
   addWatermark,
   addWatermarkAsync,
+  addWatermarkWithWorkers,
+  addWatermarkBatch,
+  
+  // Worker池管理
+  initWorkerPool,
+  terminateWorkerPool,
+  getWorkerPoolStatus,
   
   // 辅助功能
   isImageFile,
@@ -372,6 +530,11 @@ if (typeof module !== 'undefined' && module.exports) {
     default: init,
     addWatermark,
     addWatermarkAsync,
+    addWatermarkWithWorkers,
+    addWatermarkBatch,
+    initWorkerPool,
+    terminateWorkerPool,
+    getWorkerPoolStatus,
     isImageFile,
     renderTextToImage,
     imageToUint8Array,

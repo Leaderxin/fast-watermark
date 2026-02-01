@@ -38,12 +38,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Leaderxin/watermarkPlus.git"
+    "url": "https://github.com/Leaderxin/watermark-plus.git"
   },
   "bugs": {
-    "url": "https://github.com/Leaderxin/watermarkPlus/issues"
+    "url": "https://github.com/Leaderxin/watermark-plus/issues"
   },
-  "homepage": "https://github.com/Leaderxin/watermarkPlus#readme",
+  "homepage": "https://github.com/Leaderxin/watermark-plus#readme",
   "engines": {
     "node": ">=14.0.0"
   },
