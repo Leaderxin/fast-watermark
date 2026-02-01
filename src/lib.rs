@@ -139,7 +139,7 @@ fn load_and_prepare_watermark(
     if let Some(width) = config.width {
         let height = config.height.unwrap_or((watermark_img.height() * width) / watermark_img.width());
         if watermark_img.width() == 0 {
-            return Err("Watermark image has zero width".to_string());
+            return Err("Watermark image has zero width width".to_string());
         }
         watermark_img = watermark_img.resize(width, height, image::imageops::FilterType::Lanczos3);
     }
@@ -151,7 +151,7 @@ fn load_and_prepare_watermark(
     Ok(watermark_img.to_rgba8())
 }
 
-// 旋转图片（优化版本：使用最近邻插值，更快）
+// 旋转图片（使用最近邻插值，更快）
 fn rotate_image(img: &DynamicImage, angle_degrees: f32) -> DynamicImage {
     if angle_degrees == 0.0 {
         return img.clone();
@@ -390,7 +390,38 @@ pub async fn add_watermark_async(
 ) -> Result<Vec<u8>, JsValue> {
     // 使用wasm-bindgen-futures来支持异步操作
     // 注意：当前实现仍然是同步的，但提供了异步接口以便未来扩展
-    add_watermark(image_data, config_js)
+    // 重新调用同步版本的add_watermark
+    let config: WatermarkConfig = serde_wasm_bindgen::from_value(config_js)
+        .map_err(|e| JsValue::from_str(&format!("Failed to parse config: {}", e)))?;
+    
+    // 加载图片
+    let mut img = image::load_from_memory(image_data)
+        .map_err(|e| JsValue::from_str(&format!("Failed to load image: {}", e)))?;
+    
+    // 根据类型添加水印
+    match config.watermark_type.as_str() {
+        "text" => {
+            add_text_watermark(&mut img, &config)
+                .map_err(|e| JsValue::from_str(&format!("Failed to add text watermark: {}", e)))?;
+        }
+        "image" => {
+            add_image_watermark(&mut img, &config)
+                .map_err(|e| JsValue::from_str(&format!("Failed to add image watermark: {}", e)))?;
+        }
+        _ => {
+            return Err(JsValue::from_str(&format!(
+                "Invalid watermark type '{}'. Use 'text' or 'image'",
+                config.watermark_type
+            )));
+        }
+    }
+    
+    // 编码为PNG
+    let mut buffer = Vec::new();
+    img.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::Png)
+        .map_err(|e| JsValue::from_str(&format!("Failed to encode image: {}", e)))?;
+    
+    Ok(buffer)
 }
 
 // 初始化函数
