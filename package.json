@@ -1,0 +1,55 @@
+{
+  "name": "watermark-plus",
+  "version": "1.0.0",
+  "description": "高性能图片水印库，基于Rust + WebAssembly实现，支持文字和图片水印",
+  "keywords": [
+    "watermark",
+    "image",
+    "rust",
+    "wasm",
+    "webassembly",
+    "watermark-plus",
+    "图片水印",
+    "文字水印",
+    "图片处理"
+  ],
+  "author": {
+    "name": "Leaderxin",
+    "email": "shazhoulen@outlook.com"
+  },
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "module": "index.js",
+  "types": "index.d.ts",
+  "browser": "index.js",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "pkg/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bash build.sh",
+    "build:dev": "wasm-pack build --target web --out-dir pkg",
+    "build:release": "wasm-pack build --release --target web --out-dir pkg",
+    "test": "node test.js",
+    "prepack": "npm run build:release"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Leaderxin/watermarkPlus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Leaderxin/watermarkPlus/issues"
+  },
+  "homepage": "https://github.com/Leaderxin/watermarkPlus#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "publishConfig": {
+    "access": "public"
+  }
+}

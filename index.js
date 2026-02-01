@@ -1,0 +1,386 @@
+/**
+ * watermark-plus
+ * 高性能图片水印库，基于Rust + WebAssembly实现
+ * 
+ * @version 0.1.0
+ * @license Apache-2.0
+ */
+
+let wasmModule = null;
+let wasmInitialized = false;
+
+/**
+ * 初始化WASM模块
+ * @param {string} [wasmPath] - WASM文件路径，默认自动查找
+ * @returns {Promise<void>}
+ */
+async function init(wasmPath) {
+  if (wasmInitialized) {
+    return;
+  }
+
+  try {
+    // 动态导入wasm-pack生成的模块
+    const wasmPack = await import('./pkg/wasm_watermark.js');
+    
+    if (wasmPath) {
+      await wasmPack.default(wasmPath);
+    } else {
+      await wasmPack.default();
+    }
+    
+    wasmModule = wasmPack;
+    wasmInitialized = true;
+  } catch (error) {
+    console.error('Failed to initialize WASM module:', error);
+    throw new Error(`WASM initialization failed: ${error.message}`);
+  }
+}
+
+/**
+ * 确保WASM已初始化
+ * @private
+ */
+async function ensureInitialized() {
+  if (!wasmInitialized) {
+    await init();
+  }
+}
+
+/**
+ * 检查是否为图片文件
+ * @param {File|Blob|string} file - 文件对象或MIME类型
+ * @returns {boolean}
+ */
+function isImageFile(file) {
+  const imageTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/x-icon',
+    'image/vnd.microsoft.icon'
+  ];
+
+  if (typeof file === 'string') {
+    return imageTypes.includes(file.toLowerCase());
+  }
+
+  if (file instanceof File || file instanceof Blob) {
+    return imageTypes.includes(file.type.toLowerCase());
+  }
+
+  return false;
+}
+
+/**
+ * 将图片数据转换为Uint8Array
+ * @param {File|Blob|ArrayBuffer|Uint8Array} imageData - 图片数据
+ * @returns {Promise<Uint8Array>}
+ */
+async function imageToUint8Array(imageData) {
+  if (imageData instanceof Uint8Array) {
+    return imageData;
+  }
+
+  if (imageData instanceof ArrayBuffer) {
+    return new Uint8Array(imageData);
+  }
+
+  if (imageData instanceof Blob || imageData instanceof File) {
+    const arrayBuffer = await imageData.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+  }
+
+  throw new Error('Unsupported image data type. Expected File, Blob, ArrayBuffer, or Uint8Array');
+}
+
+/**
+ * 将Uint8Array转换为Blob
+ * @param {Uint8Array} data - 二进制数据
+ * @param {string} [mimeType='image/png'] - MIME类型
+ * @returns {Blob}
+ */
+function uint8ArrayToBlob(data, mimeType = 'image/png') {
+  return new Blob([data], { type: mimeType });
+}
+
+/**
+ * 默认水印配置
+ */
+const defaultWatermarkConfig = {
+  type: 'text',
+  text: '水印',
+  font: 'Arial',
+  font_size: 30,
+  font_color: '#FFFFFF',
+  transparency: 0.5,
+  rotate: 0,
+  x_offset: 10,
+  y_offset: 10,
+  tile: false
+};
+
+/**
+ * 创建文字水印配置
+ * @param {Object} options - 配置选项
+ * @param {string} options.text - 水印文字
+ * @param {number} [options.fontSize=30] - 字体大小
+ * @param {string} [options.fontColor='#FFFFFF'] - 字体颜色
+ * @param {string} [options.font='Arial'] - 字体名称
+ * @param {number} [options.transparency=0.5] - 透明度(0-1)
+ * @param {number} [options.rotate=0] - 旋转角度(度)
+ * @param {number} [options.xOffset=10] - X轴偏移(像素)
+ * @param {number} [options.yOffset=10] - Y轴偏移(像素)
+ * @param {boolean} [options.tile=false] - 是否平铺
+ * @returns {Object}
+ */
+function createTextWatermarkConfig(options = {}) {
+  return {
+    type: 'text',
+    text: options.text || '水印',
+    font: options.font || 'Arial',
+    font_size: options.fontSize || options.font_size || 30,
+    font_color: options.fontColor || options.font_color || '#FFFFFF',
+    transparency: options.transparency !== undefined ? options.transparency : 0.5,
+    rotate: options.rotate || 0,
+    x_offset: options.xOffset || options.x_offset || 10,
+    y_offset: options.yOffset || options.y_offset || 10,
+    tile: options.tile || false
+  };
+}
+
+/**
+ * 创建图片水印配置
+ * @param {Object} options - 配置选项
+ * @param {string} options.imageData - base64编码的图片数据
+ * @param {number} [options.width] - 水印图片宽度
+ * @param {number} [options.height] - 水印图片高度
+ * @param {number} [options.transparency=0.5] - 透明度(0-1)
+ * @param {number} [options.rotate=0] - 旋转角度(度)
+ * @param {number} [options.xOffset=10] - X轴偏移(像素)
+ * @param {number} [options.yOffset=10] - Y轴偏移(像素)
+ * @param {boolean} [options.tile=false] - 是否平铺
+ * @returns {Object}
+ */
+function createImageWatermarkConfig(options = {}) {
+  if (!options.imageData) {
+    throw new Error('imageData is required for image watermark');
+  }
+
+  return {
+    type: 'image',
+    image_data: options.imageData,
+    width: options.width,
+    height: options.height,
+    transparency: options.transparency !== undefined ? options.transparency : 0.5,
+    rotate: options.rotate || 0,
+    x_offset: options.xOffset || options.x_offset || 10,
+    y_offset: options.yOffset || options.y_offset || 10,
+    tile: options.tile || false
+  };
+}
+
+/**
+ * 在浏览器中将文字渲染为图片（base64）
+ * @param {string} text - 要渲染的文字
+ * @param {Object} options - 渲染选项
+ * @param {number} [options.fontSize=30] - 字体大小
+ * @param {string} [options.fontColor='#FFFFFF'] - 字体颜色
+ * @param {string} [options.font='Arial'] - 字体名称
+ * @returns {string} base64编码的图片数据
+ */
+function renderTextToImage(text, options = {}) {
+  if (typeof window === 'undefined') {
+    throw new Error('renderTextToImage is only available in browser environment');
+  }
+
+  const fontSize = options.fontSize || options.font_size || 30;
+  const fontColor = options.fontColor || options.font_color || '#FFFFFF';
+  const font = options.font || 'Arial';
+  const padding = 10;
+
+  // 创建临时canvas
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // 设置字体并测量文字
+  ctx.font = `${fontSize}px ${font}`;
+  const metrics = ctx.measureText(text);
+  const textWidth = metrics.width;
+  const textHeight = fontSize;
+
+  // 设置canvas尺寸
+  canvas.width = textWidth + padding * 2;
+  canvas.height = textHeight + padding * 2;
+
+  // 绘制文字
+  ctx.font = `${fontSize}px ${font}`;
+  ctx.fillStyle = fontColor;
+  ctx.textBaseline = 'top';
+  ctx.fillText(text, padding, padding);
+
+  // 转换为base64
+  return canvas.toDataURL('image/png');
+}
+
+/**
+ * 添加水印到图片（同步）
+ * @param {File|Blob|ArrayBuffer|Uint8Array} image - 图片数据
+ * @param {Object} config - 水印配置
+ * @returns {Promise<Blob>} 处理后的图片Blob
+ */
+async function addWatermark(image, config) {
+  await ensureInitialized();
+
+  if (!image) {
+    throw new Error('Image data is required');
+  }
+
+  if (!config) {
+    throw new Error('Watermark config is required');
+  }
+
+  // 如果是文字水印且没有image_data，先渲染文字为图片
+  if (config.type === 'text' && !config.image_data) {
+    config = {
+      ...config,
+      image_data: renderTextToImage(config.text, config)
+    };
+  }
+
+  try {
+    // 转换图片数据
+    const imageBytes = await imageToUint8Array(image);
+
+    // 调用WASM函数
+    const resultBytes = wasmModule.add_watermark(imageBytes, config);
+
+    // 转换为Blob
+    return uint8ArrayToBlob(resultBytes, 'image/png');
+  } catch (error) {
+    console.error('Failed to add watermark:', error);
+    throw new Error(`Watermark processing failed: ${error.message}`);
+  }
+}
+
+/**
+ * 添加水印到图片（异步）
+ * 使用WASM异步函数，适合处理大文件，避免阻塞主线程
+ * @param {File|Blob|ArrayBuffer|Uint8Array} image - 图片数据
+ * @param {Object} config - 水印配置
+ * @returns {Promise<Blob>} 处理后的图片Blob
+ */
+async function addWatermarkAsync(image, config) {
+  await ensureInitialized();
+
+  if (!image) {
+    throw new Error('Image data is required');
+  }
+
+  if (!config) {
+    throw new Error('Watermark config is required');
+  }
+
+  // 如果是文字水印且没有image_data，先渲染文字为图片
+  if (config.type === 'text' && !config.image_data) {
+    config = {
+      ...config,
+      image_data: renderTextToImage(config.text, config)
+    };
+  }
+
+  try {
+    // 转换图片数据
+    const imageBytes = await imageToUint8Array(image);
+
+    // 调用WASM异步函数（使用Promise，适合大文件处理）
+    const resultBytes = await wasmModule.add_watermark_async(imageBytes, config);
+
+    // 转换为Blob
+    return uint8ArrayToBlob(resultBytes, 'image/png');
+  } catch (error) {
+    console.error('Failed to add watermark (async):', error);
+    throw new Error(`Watermark processing failed: ${error.message}`);
+  }
+}
+
+/**
+ * WASM底层函数（直接暴露）
+ * 这些函数需要先调用init()初始化
+ */
+const wasmFunctions = {
+  /**
+   * 直接调用WASM的add_watermark函数
+   * @param {Uint8Array} imageData - 图片字节数组
+   * @param {Object} config - 水印配置
+   * @returns {Uint8Array} 处理后的图片字节数组
+   */
+  add_watermark: async (imageData, config) => {
+    await ensureInitialized();
+    return wasmModule.add_watermark(imageData, config);
+  },
+
+  /**
+   * 直接调用WASM的add_watermark_async函数
+   * 使用Promise异步处理，适合大文件
+   * @param {Uint8Array} imageData - 图片字节数组
+   * @param {Object} config - 水印配置
+   * @returns {Promise<Uint8Array>} 处理后的图片字节数组
+   */
+  add_watermark_async: async (imageData, config) => {
+    await ensureInitialized();
+    return wasmModule.add_watermark_async(imageData, config);
+  }
+};
+
+// 导出所有功能
+export {
+  // 初始化
+  init,
+  init as default,
+  
+  // 主要功能
+  addWatermark,
+  addWatermarkAsync,
+  
+  // 辅助功能
+  isImageFile,
+  renderTextToImage,
+  imageToUint8Array,
+  uint8ArrayToBlob,
+  
+  // 配置
+  defaultWatermarkConfig,
+  createTextWatermarkConfig,
+  createImageWatermarkConfig,
+  
+  // WASM底层函数
+  wasmFunctions
+};
+
+// 兼容旧版本的导出 - 使用单独的export语句
+export const add_watermark = wasmFunctions.add_watermark;
+export const add_watermark_async = wasmFunctions.add_watermark_async;
+
+// CommonJS兼容性（用于Node.js环境）
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    init,
+    default: init,
+    addWatermark,
+    addWatermarkAsync,
+    isImageFile,
+    renderTextToImage,
+    imageToUint8Array,
+    uint8ArrayToBlob,
+    defaultWatermarkConfig,
+    createTextWatermarkConfig,
+    createImageWatermarkConfig,
+    wasmFunctions,
+    add_watermark: wasmFunctions.add_watermark,
+    add_watermark_async: wasmFunctions.add_watermark_async
+  };
+}
