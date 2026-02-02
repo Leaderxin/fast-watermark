@@ -25,7 +25,10 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "pkg/*",
+    "pkg/wasm_watermark_bg.wasm",
+    "pkg/wasm_watermark.js",
+    "pkg/wasm_watermark.d.ts",
+    "pkg/wasm_watermark_bg.wasm.d.ts",
     "worker-pool.js",
     "watermark-worker.js",
     "README.md",

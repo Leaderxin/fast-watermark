@@ -182,7 +182,7 @@
                 <input type="number" id="iterations" value="5" min="1" max="20">
             </div>
             <div class="config-item">
-                <label>水印透明度:</label>
+                <label>水印不透明度:</label>
                 <input type="range" id="transparency" value="0.5" min="0" max="1" step="0.1">
                 <span id="transparencyValue">0.5</span>
             </div>
@@ -551,7 +551,7 @@
             document.getElementById('logLog').innerHTML = '';
         }
         
-        // 透明度滑块更新
+        // 不透明度滑块更新
         document.getElementById('transparency').addEventListener('input', (e) => {
             document.getElementById('transparencyValue').textContent = e.target.value;
         });

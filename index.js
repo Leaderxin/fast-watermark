@@ -130,7 +130,7 @@ const defaultWatermarkConfig = {
  * @param {number} [options.fontSize=30] - 字体大小
  * @param {string} [options.fontColor='#FFFFFF'] - 字体颜色
  * @param {string} [options.font='Arial'] - 字体名称
- * @param {number} [options.transparency=0.5] - 透明度(0-1)
+ * @param {number} [options.transparency=0.5] - 不透明度(0-1)
  * @param {number} [options.rotate=0] - 旋转角度(度)
  * @param {number} [options.xOffset=10] - X轴偏移(像素)
  * @param {number} [options.yOffset=10] - Y轴偏移(像素)
@@ -158,7 +158,7 @@ function createTextWatermarkConfig(options = {}) {
  * @param {string} options.imageData - base64编码的图片数据
  * @param {number} [options.width] - 水印图片宽度
  * @param {number} [options.height] - 水印图片高度
- * @param {number} [options.transparency=0.5] - 透明度(0-1)
+ * @param {number} [options.transparency=0.5] - 不透明度(0-1)
  * @param {number} [options.rotate=0] - 旋转角度(度)
  * @param {number} [options.xOffset=10] - X轴偏移(像素)
  * @param {number} [options.yOffset=10] - Y轴偏移(像素)

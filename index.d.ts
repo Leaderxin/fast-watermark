@@ -7,7 +7,7 @@
  * 水印配置基础接口
  */
 export interface BaseWatermarkConfig {
-  /** 透明度 (0-1) */
+  /** 不透明度 (0-1) */
   transparency?: number;
   /** 旋转角度 (度) */
   rotate?: number;
@@ -66,7 +66,7 @@ export interface TextWatermarkOptions {
   fontColor?: string;
   /** 字体名称 */
   font?: string;
-  /** 透明度 (0-1) */
+  /** 不透明度 (0-1) */
   transparency?: number;
   /** 旋转角度 (度) */
   rotate?: number;
@@ -88,7 +88,7 @@ export interface ImageWatermarkOptions {
   width?: number;
   /** 水印图片高度 */
   height?: number;
-  /** 透明度 (0-1) */
+  /** 不透明度 (0-1) */
   transparency?: number;
   /** 旋转角度 (度) */
   rotate?: number;
