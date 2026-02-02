@@ -3,9 +3,6 @@
 **/*.rs.bk
 Cargo.lock
 
-# WASM
-*.wasm
-*.wasm.map
 
 # Node.js / npm
 node_modules/

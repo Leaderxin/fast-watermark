@@ -105,9 +105,12 @@ class WorkerPool {
         idleWorker.currentTask = task;
         this.activeWorkers++;
 
+        // 判断消息类型：如果任务数据包含 chunkIndex，则是分片处理
+        const messageType = task.data.chunkIndex !== undefined ? 'processChunk' : 'process';
+
         // 发送任务给Worker
         idleWorker.worker.postMessage({
-            type: 'process',
+            type: messageType,
             data: task.data
         });
     }

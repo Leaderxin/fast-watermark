@@ -233,14 +233,14 @@
     </div>
 
     <script type="module">
-        import { 
-            init, 
-            addWatermark, 
+        import {
+            init,
+            addWatermark,
             addWatermarkWithWorkers,
             initWorkerPool,
             getWorkerPoolStatus,
-            createImageWatermarkConfig, 
-            renderTextToImage 
+            createImageWatermarkConfig,
+            renderTextToImage
         } from './index.js';
 
         let testImage = null;
@@ -461,8 +461,8 @@
                 tile: true
             });
             
-            // 单线程测试
-            log('--- 单线程测试 ---', 'info');
+            // 单线程测试 - 串行处理
+            log('--- 单线程测试（串行处理） ---', 'info');
             const singleTimes = [];
             for (let i = 0; i < iterations; i++) {
                 const startTime = performance.now();
@@ -472,35 +472,55 @@
                 log(`单线程第${i + 1}次: ${duration.toFixed(2)} ms`, 'info');
             }
             
-            // 多线程测试
-            log('--- 多线程测试 ---', 'info');
+            // 多线程测试 - 并行处理（同时处理多张图片）
+            log('--- 多线程测试（并行处理） ---', 'info');
             const multiTimes = [];
-            for (let i = 0; i < iterations; i++) {
-                const startTime = performance.now();
-                const result = await addWatermarkWithWorkers(testImage, config);
-                const duration = performance.now() - startTime;
-                multiTimes.push(duration);
-                log(`多线程第${i + 1}次: ${duration.toFixed(2)} ms`, 'info');
-            }
+            
+            // 创建多个图片副本进行并行处理
+            const imageBytes = await testImage.arrayBuffer();
+            const images = Array(iterations).fill(null).map(() => new Blob([imageBytes], { type: testImage.type }));
+            
+            const startTime = performance.now();
+            
+            // 使用Promise.all并行处理所有图片
+            const results = await Promise.all(
+                images.map((img, index) =>
+                    addWatermarkWithWorkers(img, config).then(result => {
+                        const duration = performance.now() - startTime;
+                        multiTimes.push(duration);
+                        log(`多线程第${index + 1}次完成，累计耗时: ${duration.toFixed(2)} ms`, 'info');
+                        return result;
+                    })
+                )
+            );
+            
+            const totalMultiTime = performance.now() - startTime;
             
             // 计算统计数据
             const singleAvg = singleTimes.reduce((a, b) => a + b, 0) / singleTimes.length;
+            const singleTotal = singleTimes.reduce((a, b) => a + b, 0);
             const multiAvg = multiTimes.reduce((a, b) => a + b, 0) / multiTimes.length;
-            const improvement = ((singleAvg - multiAvg) / singleAvg * 100);
+            const improvement = ((singleTotal - totalMultiTime) / singleTotal * 100);
             
             document.getElementById('avgTime').textContent = multiAvg.toFixed(2);
             document.getElementById('minTime').textContent = Math.min(...multiTimes).toFixed(2);
             document.getElementById('maxTime').textContent = Math.max(...multiTimes).toFixed(2);
             
             const imageSizeMB = testImage.size / 1024 / 1024;
-            const throughput = imageSizeMB / (multiAvg / 1000);
+            const totalSizeMB = imageSizeMB * iterations;
+            const throughput = totalSizeMB / (totalMultiTime / 1000);
             document.getElementById('throughput').textContent = throughput.toFixed(2);
             
             log('--- 对比结果 ---', 'success');
-            log(`单线程平均耗时: ${singleAvg.toFixed(2)} ms`, 'info');
-            log(`多线程平均耗时: ${multiAvg.toFixed(2)} ms`, 'info');
+            log(`单线程总耗时: ${singleTotal.toFixed(2)} ms (平均 ${singleAvg.toFixed(2)} ms/张)`, 'info');
+            log(`多线程总耗时: ${totalMultiTime.toFixed(2)} ms (平均 ${multiAvg.toFixed(2)} ms/张)`, 'info');
             log(`性能提升: ${improvement.toFixed(1)}%`, improvement > 0 ? 'success' : 'error');
             log(`多线程吞吐量: ${throughput.toFixed(2)} MB/s`, 'info');
+            
+            // 显示最后一个结果
+            if (results.length > 0) {
+                displayResult(results[results.length - 1]);
+            }
         }
         
         // 显示结果

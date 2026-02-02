@@ -123,7 +123,7 @@ function WatermarkExample() {
 
 ### `addWatermark(image, config)`
 
-添加水印到图片（同步方式）
+添加水印到图片（异步方式）
 
 **参数：**
 - `image` (`File | Blob | ArrayBuffer | Uint8Array`) - 图片数据
@@ -139,7 +139,7 @@ const blob = await addWatermark(imageFile, config);
 
 ### `addWatermarkAsync(image, config)`
 
-添加水印到图片（异步方式，与 `addWatermark` 功能相同）
+添加水印到图片（异步方式，使用 WASM 异步函数，适合处理大文件）
 
 **参数：**
 - `image` (`File | Blob | ArrayBuffer | Uint8Array`) - 图片数据
@@ -147,6 +147,49 @@ const blob = await addWatermark(imageFile, config);
 
 **返回：**
 - `Promise<Blob>` - 处理后的图片 Blob 对象
+
+### `addWatermarkWithWorkers(image, config)`
+
+使用 Worker 池添加水印（多线程处理，适合批量处理）
+
+**参数：**
+- `image` (`File | Blob | ArrayBuffer | Uint8Array`) - 图片数据
+- `config` (`WatermarkConfig`) - 水印配置对象
+
+**返回：**
+- `Promise<Blob>` - 处理后的图片 Blob 对象
+
+### `addWatermarkBatch(images, config)`
+
+批量处理多个图片（多线程）
+
+**参数：**
+- `images` (`Array<File | Blob | ArrayBuffer | Uint8Array>`) - 图片数组
+- `config` (`WatermarkConfig`) - 水印配置对象
+
+**返回：**
+- `Promise<Array<Blob>>` - 处理后的图片 Blob 数组
+
+### `initWorkerPool(maxWorkers)`
+
+初始化 Worker 池
+
+**参数：**
+- `maxWorkers` (`number`) - 最大 Worker 数量，默认为 CPU 核心数
+
+**返回：**
+- `Promise<void>`
+
+### `terminateWorkerPool()`
+
+关闭 Worker 池，释放资源
+
+### `getWorkerPoolStatus()`
+
+获取 Worker 池状态
+
+**返回：**
+- `Object` - 包含 `initialized`、`workerCount`、`activeWorkers`、`queueLength` 等信息
 
 ### `createTextWatermarkConfig(options)`
 
@@ -234,6 +277,8 @@ const config = createImageWatermarkConfig({
 | `y_offset` | `number` | `10` | Y 轴偏移（像素） |
 | `tile` | `boolean` | `false` | 是否平铺水印 |
 
+**注意：** `createTextWatermarkConfig` 函数支持驼峰命名（如 `fontSize`、`fontColor`）和下划线命名（如 `font_size`、`font_color`）两种方式。
+
 ### 图片水印配置 (`ImageWatermarkConfig`)
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -247,6 +292,8 @@ const config = createImageWatermarkConfig({
 | `x_offset` | `number` | `10` | X 轴偏移（像素） |
 | `y_offset` | `number` | `10` | Y 轴偏移（像素） |
 | `tile` | `boolean` | `false` | 是否平铺水印 |
+
+**注意：** `createImageWatermarkConfig` 函数支持驼峰命名（如 `xOffset`、`yOffset`）和下划线命名（如 `x_offset`、`y_offset`）两种方式。
 
 ## 🎯 使用场景
 
@@ -263,10 +310,15 @@ const config = createTextWatermarkConfig({
 });
 ```
 
-### 2. 批量处理图片
+### 2. 批量处理图片（推荐使用多线程）
 
 ```javascript
+import { addWatermarkBatch, initWorkerPool, terminateWorkerPool } from 'watermark-plus';
+
 async function processImages(files) {
+  // 初始化 Worker 池
+  await initWorkerPool();
+
   const config = createTextWatermarkConfig({
     text: 'Processed',
     fontSize: 24,
@@ -275,9 +327,11 @@ async function processImages(files) {
     tile: true
   });
 
-  const results = await Promise.all(
-    files.map(file => addWatermark(file, config))
-  );
+  // 使用批量处理 API（多线程）
+  const results = await addWatermarkBatch(files, config);
+
+  // 处理完成后关闭 Worker 池
+  terminateWorkerPool();
 
   return results;
 }
@@ -329,7 +383,7 @@ import { init } from 'watermark-plus';
 await init();
 
 // 或指定 WASM 文件路径
-await init('/path/to/watermark_watermark_bg.wasm');
+await init('/path/to/wasm_watermark_bg.wasm');
 ```
 
 ### 使用底层 WASM 函数
@@ -342,9 +396,35 @@ import { wasmFunctions, imageToUint8Array, uint8ArrayToBlob } from 'watermark-pl
 const imageBytes = await imageToUint8Array(imageFile);
 const config = { /* ... */ };
 
-// 直接调用 WASM 函数
-const resultBytes = wasmFunctions.add_watermark(imageBytes, config);
-const resultBlob = uint[8ArrayToBlob(resultBytes);
+// 直接调用 WASM 函数（异步）
+const resultBytes = await wasmFunctions.add_watermark(imageBytes, config);
+const resultBlob = uint8ArrayToBlob(resultBytes);
+```
+
+### 使用 Worker 池进行多线程处理
+
+对于需要处理大量图片的场景，可以使用 Worker 池来避免阻塞主线程：
+
+```javascript
+import {
+  initWorkerPool,
+  addWatermarkWithWorkers,
+  getWorkerPoolStatus,
+  terminateWorkerPool
+} from 'watermark-plus';
+
+// 初始化 Worker 池（指定最大 Worker 数量）
+await initWorkerPool(4);
+
+// 查看状态
+console.log(getWorkerPoolStatus());
+// { initialized: true, workerCount: 4, activeWorkers: 0, queueLength: 0 }
+
+// 使用 Worker 池处理图片
+const result = await addWatermarkWithWorkers(imageFile, config);
+
+// 关闭 Worker 池
+terminateWorkerPool();
 ```
 
 ## 📊 性能对比
@@ -368,8 +448,8 @@ const resultBlob = uint[8ArrayToBlob(resultBytes);
 
 ```bash
 # 克隆仓库
-git clone https://github.com/Leaderxin/watermarkPlus.git
-cd watermarkPlus
+git clone https://github.com/Leaderxin/watermark-plus.git
+cd watermark-plus
 
 # 安装 Rust 工具链（如果尚未安装）
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -414,8 +494,8 @@ npm test
 
 ## 📮 联系方式
 
-- 问题反馈：[GitHub Issues](https://github.com/Leaderxin/watermarkPlus/issues)
-- 邮箱：your.email@example.com
+- 问题反馈：[GitHub Issues](https://github.com/Leaderxin/watermark-plus/issues)
+- 邮箱：shazhoulen@outlook.com
 
 ---
 

@@ -26,6 +26,8 @@
     "index.js",
     "index.d.ts",
     "pkg/*",
+    "worker-pool.js",
+    "watermark-worker.js",
     "README.md",
     "LICENSE"
   ],
