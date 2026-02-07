@@ -1,12 +1,12 @@
 /**
- * watermark-plus 测试文件
+ * fast-watermark 测试文件
  * 用于验证npm包的基本功能
  */
 
 // 注意：此测试需要在浏览器环境中运行
 // 因为WASM模块和Canvas API只在浏览器中可用
 
-console.log('watermark-plus 测试开始...\n');
+console.log('fast-watermark 测试开始...\n');
 
 // 测试1: 检查模块是否正确导出
 console.log('测试1: 检查模块导出');
@@ -137,7 +137,7 @@ if (typeof window !== 'undefined') {
   console.log('注意: 此测试需要实际的图片文件');
   console.log('示例代码:');
   console.log(`
-    const { addWatermark, createTextWatermarkConfig } = require('watermark-plus');
+    const { addWatermark, createTextWatermarkConfig } = require('fast-watermark');
 
     // 从文件输入获取图片
     const fileInput = document.querySelector('input[type="file"]');

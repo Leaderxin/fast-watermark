@@ -1,7 +1,7 @@
 /**
- * watermark-plus
+ * fast-watermark
  * 高性能图片水印库，基于Rust + WebAssembly实现
- * 
+ *
  * @version 0.1.0
  * @license Apache-2.0
  */
@@ -398,17 +398,18 @@ async function addWatermarkWithWorkers(image, config) {
   }
 
   try {
-    // 转换图片数据
-    const imageBytes = await imageToUint8Array(image);
-
-    // 使用Worker池处理
-    const resultBytes = await workerPool.addTask(imageBytes, config);
-
-    // 转换为Blob
-    return uint8ArrayToBlob(resultBytes, 'image/png');
+      // 转换图片数据
+      const imageBytes = await imageToUint8Array(image);
+      
+      // 使用Worker池处理
+      const resultBytes = await workerPool.addTask(imageBytes, config);
+      
+      // 转换为Blob（检查是否为 Transferable Object）
+      const blobData = resultBytes instanceof Uint8Array ? resultBytes : new Uint8Array(resultBytes);
+      return uint8ArrayToBlob(blobData, 'image/png');
   } catch (error) {
-    console.error('Failed to add watermark with workers:', error);
-    throw new Error(`Watermark processing failed: ${error.message}`);
+      console.error('Failed to add watermark with workers:', error);
+      throw new Error(`Watermark processing failed: ${error.message}`);
   }
 }
 
@@ -438,19 +439,22 @@ async function addWatermarkBatch(images, config) {
   }
 
   try {
-    // 转换所有图片数据
-    const imageBytesArray = await Promise.all(
-      images.map(img => imageToUint8Array(img))
-    );
-
-    // 使用Worker池批量处理
-    const resultBytesArray = await workerPool.processBatch(imageBytesArray, config);
-
-    // 转换为Blob数组
-    return resultBytesArray.map(bytes => uint8ArrayToBlob(bytes, 'image/png'));
+      // 转换所有图片数据
+      const imageBytesArray = await Promise.all(
+          images.map(img => imageToUint8Array(img))
+      );
+      
+      // 使用Worker池批量处理
+      const resultBytesArray = await workerPool.processBatch(imageBytesArray, config);
+      
+      // 转换为Blob数组（检查是否为 Transferable Object）
+      return resultBytesArray.map(bytes => {
+          const blobData = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+          return uint8ArrayToBlob(blobData, 'image/png');
+      });
   } catch (error) {
-    console.error('Failed to add watermark batch:', error);
-    throw new Error(`Batch watermark processing failed: ${error.message}`);
+      console.error('Failed to add watermark batch:', error);
+      throw new Error(`Batch watermark processing failed: ${error.message}`);
   }
 }
 

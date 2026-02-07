@@ -3,6 +3,7 @@ use image::{DynamicImage, RgbaImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+use wide::f32x4;
 
 // 只在开发时启用 panic hook
 #[cfg(feature = "console_error_panic_hook")]
@@ -151,7 +152,7 @@ fn load_and_prepare_watermark(
     Ok(watermark_img.to_rgba8())
 }
 
-// 旋转图片（使用最近邻插值，更快）
+// 旋转图片（使用最近邻插值，SIMD 优化版本）
 fn rotate_image(img: &DynamicImage, angle_degrees: f32) -> DynamicImage {
     if angle_degrees == 0.0 {
         return img.clone();
@@ -175,33 +176,87 @@ fn rotate_image(img: &DynamicImage, angle_degrees: f32) -> DynamicImage {
     
     // 转换为 RGBA8 以便快速访问
     let img_rgba = img.to_rgba8();
+    let img_data = img_rgba.as_ref();
+    let result_data = result.as_mut();
     
+    // SIMD 向量化常量
+    let cos_vec = f32x4::splat(cos_r);
+    let sin_vec = f32x4::splat(sin_r);
+    let neg_sin_vec = f32x4::splat(-sin_r);
+    let center_x_vec = f32x4::splat(center_x);
+    let center_y_vec = f32x4::splat(center_y);
+    let new_center_x_vec = f32x4::splat(new_center_x);
+    let new_center_y_vec = f32x4::splat(new_center_y);
+    
+    // 按行处理，每行处理 4 个像素
     for y in 0..new_height {
-        for x in 0..new_width {
-            // 将新坐标转换到相对于中心的坐标
+        let y_f32 = y as f32;
+        let y_vec = f32x4::splat(y_f32);
+        let rel_y_vec = y_vec - new_center_y_vec;
+        
+        let mut x = 0;
+        let simd_end = (new_width & !3) as usize; // 对齐到 4 像素边界
+        
+        while x < simd_end {
+            // 创建 x 坐标向量 (x, x+1, x+2, x+3)
+            let x_vec = f32x4::from([x as f32, (x + 1) as f32, (x + 2) as f32, (x + 3) as f32]);
+            let rel_x_vec = x_vec - new_center_x_vec;
+            
+            // 逆旋转到原图坐标（SIMD 计算）
+            let orig_x_vec = rel_x_vec * cos_vec + rel_y_vec * sin_vec + center_x_vec;
+            let orig_y_vec = rel_x_vec * neg_sin_vec + rel_y_vec * cos_vec + center_y_vec;
+            
+            // 处理 4 个像素
+            for i in 0..4 {
+                let orig_x = orig_x_vec.to_array()[i].round() as i32;
+                let orig_y = orig_y_vec.to_array()[i].round() as i32;
+                
+                if orig_x >= 0 && orig_x < width as i32 && orig_y >= 0 && orig_y < height as i32 {
+                    let orig_idx = (orig_y as usize * width as usize + orig_x as usize) * 4;
+                    let target_idx = (y as usize * new_width as usize + x + i) * 4;
+                    
+                    // 复制 4 个通道
+                    result_data[target_idx] = img_data[orig_idx];
+                    result_data[target_idx + 1] = img_data[orig_idx + 1];
+                    result_data[target_idx + 2] = img_data[orig_idx + 2];
+                    result_data[target_idx + 3] = img_data[orig_idx + 3];
+                }
+            }
+            
+            x += 4;
+        }
+        
+        // 处理剩余的像素（非 SIMD 部分）
+        while x < new_width as usize {
             let rel_x = x as f32 - new_center_x;
-            let rel_y = y as f32 - new_center_y;
+            let rel_y = y_f32 - new_center_y;
             
             // 逆旋转到原图坐标
             let orig_x = rel_x * cos_r + rel_y * sin_r + center_x;
             let orig_y = -rel_x * sin_r + rel_y * cos_r + center_y;
             
-            // 边界检查和最近邻采样（更快）
+            // 边界检查和最近邻采样
             let orig_x_u32 = orig_x.round() as i32;
             let orig_y_u32 = orig_y.round() as i32;
             
-            if orig_x_u32 >= 0 && orig_x_u32 < width as i32 &&
-               orig_y_u32 >= 0 && orig_y_u32 < height as i32 {
-                let pixel = img_rgba.get_pixel(orig_x_u32 as u32, orig_y_u32 as u32);
-                result.put_pixel(x, y, *pixel);
+            if orig_x_u32 >= 0 && orig_x_u32 < width as i32 && orig_y_u32 >= 0 && orig_y_u32 < height as i32 {
+                let orig_idx = (orig_y_u32 as usize * width as usize + orig_x_u32 as usize) * 4;
+                let target_idx = (y as usize * new_width as usize + x) * 4;
+                
+                result_data[target_idx] = img_data[orig_idx];
+                result_data[target_idx + 1] = img_data[orig_idx + 1];
+                result_data[target_idx + 2] = img_data[orig_idx + 2];
+                result_data[target_idx + 3] = img_data[orig_idx + 3];
             }
+            
+            x += 1;
         }
     }
     
     DynamicImage::ImageRgba8(result)
 }
 
-// 叠加图片（直接操作 RGBA8，带透明度参数，优化版本）
+// 叠加图片（直接操作 RGBA8，带透明度参数，SIMD 优化版本）
 fn overlay_image_rgba_with_transparency(
     target: &mut RgbaImage,
     overlay: &RgbaImage,
@@ -214,20 +269,74 @@ fn overlay_image_rgba_with_transparency(
     
     // 预计算透明度因子
     let transparency_factor = transparency;
+    let transparency_vec = f32x4::splat(transparency_factor);
+    let one_vec = f32x4::splat(1.0);
+    let inv_255_vec = f32x4::splat(1.0 / 255.0);
     
-    for oy in 0..overlay_height {
-        for ox in 0..overlay_width {
-            let target_x = x + ox;
-            let target_y = y + oy;
+    // 获取像素数据切片
+    let target_data = target.as_mut();
+    let overlay_data = overlay.as_ref();
+    
+    // 计算边界
+    let start_x = x as usize;
+    let start_y = y as usize;
+    let end_x = (start_x + overlay_width as usize).min(target_width as usize);
+    let end_y = (start_y + overlay_height as usize).min(target_height as usize);
+    
+    // SIMD 优化的像素混合
+    for oy in 0..(end_y - start_y) {
+        let overlay_row_start = oy * overlay_width as usize * 4;
+        let target_row_start = (start_y + oy) * target_width as usize * 4 + start_x * 4;
+        
+        // 处理每一行，每次处理 4 个像素（16 字节）
+        let mut ox = 0;
+        let simd_end = (end_x - start_x) & !3; // 对齐到 4 像素边界
+        
+        while ox < simd_end {
+            let overlay_idx = overlay_row_start + ox * 4;
+            let target_idx = target_row_start + ox * 4;
             
-            if target_x >= target_width || target_y >= target_height {
-                continue;
-            }
+            // 加载 4 个像素值（RGBA）
+            let overlay_r = overlay_data[overlay_idx] as f32;
+            let overlay_g = overlay_data[overlay_idx + 1] as f32;
+            let overlay_b = overlay_data[overlay_idx + 2] as f32;
+            let overlay_a = overlay_data[overlay_idx + 3] as f32;
             
-            let overlay_pixel = overlay.get_pixel(ox, oy);
-            let target_pixel = target.get_pixel_mut(target_x, target_y);
+            let target_r = target_data[target_idx] as f32;
+            let target_g = target_data[target_idx + 1] as f32;
+            let target_b = target_data[target_idx + 2] as f32;
+            let target_a = target_data[target_idx + 3] as f32;
             
-            // 直接应用透明度，避免重复计算
+            // 使用 SIMD 计算透明度
+            let overlay_vec = f32x4::from([overlay_r, overlay_g, overlay_b, overlay_a]);
+            let target_vec = f32x4::from([target_r, target_g, target_b, target_a]);
+            
+            // 计算透明度
+            let alpha = overlay_vec * inv_255_vec * transparency_vec;
+            let inv_alpha = one_vec - alpha;
+            
+            // 混合像素
+            let blended = target_vec * inv_alpha + overlay_vec * alpha;
+            
+            // 存储结果
+            let blended_array = blended.to_array();
+            target_data[target_idx] = blended_array[0] as u8;
+            target_data[target_idx + 1] = blended_array[1] as u8;
+            target_data[target_idx + 2] = blended_array[2] as u8;
+            target_data[target_idx + 3] = blended_array[3] as u8;
+            
+            ox += 4;
+        }
+        
+        // 处理剩余的像素（非 SIMD 部分）
+        while ox < (end_x - start_x) {
+            let overlay_idx = overlay_row_start + ox * 4;
+            let target_idx = target_row_start + ox * 4;
+            
+            let overlay_pixel = &overlay_data[overlay_idx..overlay_idx + 4];
+            let target_pixel = &mut target_data[target_idx..target_idx + 4];
+            
+            // 单像素混合
             let alpha = overlay_pixel[3] as f32 / 255.0 * transparency_factor;
             if alpha > 0.0 {
                 let inv_alpha = 1.0 - alpha;
@@ -236,6 +345,8 @@ fn overlay_image_rgba_with_transparency(
                 target_pixel[2] = (target_pixel[2] as f32 * inv_alpha + overlay_pixel[2] as f32 * alpha) as u8;
                 target_pixel[3] = (target_pixel[3] as f32 * inv_alpha + overlay_pixel[3] as f32 * alpha) as u8;
             }
+            
+            ox += 1;
         }
     }
 }
@@ -374,8 +485,11 @@ pub fn add_watermark(
         }
     }
     
-    // 编码为PNG
-    let mut buffer = Vec::new();
+    // 编码为PNG（预分配缓冲区以减少重新分配）
+    let (width, height) = img.dimensions();
+    // 预估 PNG 编码后的大小：width * height * 4 (RGBA) + 头部开销
+    let estimated_size = (width * height * 4) as usize + 1024;
+    let mut buffer = Vec::with_capacity(estimated_size);
     img.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::Png)
         .map_err(|e| JsValue::from_str(&format!("Failed to encode image: {}", e)))?;
     
@@ -416,8 +530,11 @@ pub async fn add_watermark_async(
         }
     }
     
-    // 编码为PNG
-    let mut buffer = Vec::new();
+    // 编码为PNG（预分配缓冲区以减少重新分配）
+    let (width, height) = img.dimensions();
+    // 预估 PNG 编码后的大小：width * height * 4 (RGBA) + 头部开销
+    let estimated_size = (width * height * 4) as usize + 1024;
+    let mut buffer = Vec::with_capacity(estimated_size);
     img.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::Png)
         .map_err(|e| JsValue::from_str(&format!("Failed to encode image: {}", e)))?;
     

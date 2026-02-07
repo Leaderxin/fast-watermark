@@ -7,7 +7,21 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = false
+wasm-opt = [
+    "-O3",                    # 最高优化级别
+    "--enable-mutable-globals",   # 可变全局变量
+    "--enable-simd",             # SIMD 支持
+    "--enable-bulk-memory",       # 批量内存操作
+    "--enable-sign-ext",          # 符号扩展
+    "--inline-literal-all",       # 内联所有字面量
+    "--vacuum",                 # 移除未使用的代码
+    "--dce",                   # 死代码消除
+    "--rse",                   # 冗余存储消除
+    "--optimize-instructions",      # 指令优化
+    "--optimize-globals",         # 全局变量优化
+    "--merge-blocks",            # 块合并
+    "--",                       # 空字符串分隔
+]
 
 [dependencies]
 wasm-bindgen = "0.2"
@@ -19,6 +33,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 console_error_panic_hook = { version = "0.1", optional = true }
 base64 = "0.21"
+# SIMD 支持
+wide = "0.7"
 
 [dependencies.web-sys]
 version = "0.3"

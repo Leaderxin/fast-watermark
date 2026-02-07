@@ -1,5 +1,5 @@
 /**
- * watermark-plus TypeScript类型定义
+ * fast-watermark TypeScript类型定义
  * @version 0.1.0
  */
 

@@ -68,12 +68,12 @@ async function processWatermark(data) {
     // 调用WASM函数添加水印
     const resultBytes = wasmModule.add_watermark(imageBytes, config);
     
-    // 返回结果
+    // 返回结果（使用 Transferable Objects 避免拷贝）
     self.postMessage({
         type: 'process',
         success: true,
         chunkIndex,
         totalChunks,
         result: resultBytes
-    });
+    }, [resultBytes.buffer]); // 转移 ArrayBuffer 所有权
 }

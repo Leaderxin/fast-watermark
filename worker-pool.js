@@ -108,11 +108,11 @@ class WorkerPool {
         // 判断消息类型：如果任务数据包含 chunkIndex，则是分片处理
         const messageType = task.data.chunkIndex !== undefined ? 'processChunk' : 'process';
 
-        // 发送任务给Worker
+        // 发送任务给Worker（使用 Transferable Objects 避免拷贝）
         idleWorker.worker.postMessage({
             type: messageType,
             data: task.data
-        });
+        }, [task.data.imageData?.buffer]); // 转移 ArrayBuffer 所有权
     }
 
     // 添加任务到队列
