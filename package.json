@@ -1,6 +1,6 @@
 {
   "name": "fast-watermark",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "高性能图片水印库，基于Rust + WebAssembly实现，支持文字和图片水印",
   "keywords": [
     "watermark",
@@ -40,8 +40,7 @@
     "build:release": "wasm-pack build --release --target web --out-dir pkg",
     "build:simd": "RUSTFLAGS=\"-C target-feature=+simd128\" wasm-pack build --release --target web --out-dir pkg",
     "build:windows": "build.bat",
-    "test": "node test.js",
-    "prepack": "npm run build:simd"
+    "test": "node test.js"
   },
   "repository": {
     "type": "git",

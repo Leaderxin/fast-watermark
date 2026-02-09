@@ -5,7 +5,7 @@ Cargo.lock
 
 # 构建输出
 target/
-# 注意：pkg/目录下的.wasm文件是必需的，不会被忽略
+# pkg/目录下的文件是必需的，会被包含在发布包中
 # 只忽略根目录下的临时wasm文件
 /*.wasm
 *.rlib
