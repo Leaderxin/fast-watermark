@@ -1,6 +1,8 @@
 # fast-watermark
 
 [![npm version](https://badge.fury.io/js/fast-watermark.svg)](https://www.npmjs.com/package/fast-watermark)
+[![npm downloads](https://img.shields.io/npm/dt/fast-watermark.svg)](https://www.npmjs.com/package/fast-watermark)
+[![GitHub stars](https://img.shields.io/github/stars/Leaderxin/fast-watermark.svg)](https://github.com/Leaderxin/fast-watermark)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 高性能图片水印库，基于 **Rust + WebAssembly** 实现，支持文字和图片水印。

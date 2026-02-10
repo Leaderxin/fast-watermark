@@ -111,38 +111,73 @@ fn validate_config(config: &WatermarkConfig) -> Result<(), String> {
 
 // 解码base64图片数据
 fn decode_base64_image(image_data: &str) -> Result<Vec<u8>, String> {
+    web_sys::console::log_1(&format!("开始解码base64图片数据，原始数据长度: {}", image_data.len()).into());
+    
     let base64_data = image_data.trim_start_matches("data:image/");
     let base64_data = base64_data.split(',').nth(1).unwrap_or(image_data);
+    
+    web_sys::console::log_1(&format!("处理后base64数据长度: {}", base64_data.len()).into());
     
     if base64_data.is_empty() {
         return Err("Empty base64 data".to_string());
     }
     
-    STANDARD.decode(base64_data)
-        .map_err(|e| format!("Failed to decode base64: {}", e))
+    let result = STANDARD.decode(base64_data)
+        .map_err(|e| format!("Failed to decode base64: {}", e));
+    
+    match &result {
+        Ok(data) => {
+            web_sys::console::log_1(&format!("base64解码成功，解码后数据长度: {}", data.len()).into());
+        }
+        Err(e) => {
+            web_sys::console::log_1(&format!("base64解码失败: {}", e).into());
+        }
+    }
+    
+    result
 }
 
 // 加载并调整水印图片
 fn load_and_prepare_watermark(
     config: &WatermarkConfig,
 ) -> Result<RgbaImage, String> {
+    web_sys::console::log_1(&format!("开始加载并准备水印图片").into());
+    
     let image_data = config.image_data.as_ref()
         .ok_or("image_data parameter is required")?;
+    
+    web_sys::console::log_1(&format!("水印配置中的image_data存在，长度: {}", image_data.len()).into());
     
     // 解码base64图片数据
     let image_bytes = decode_base64_image(image_data)?;
     
+    web_sys::console::log_1(&format!("开始从内存加载图片，数据长度: {}", image_bytes.len()).into());
+    
     // 加载图片
     let mut watermark_img = image::load_from_memory(&image_bytes)
-        .map_err(|e| format!("Failed to load watermark image: {}", e))?;
+        .map_err(|e| {
+            web_sys::console::log_1(&format!("图片加载失败: {}", e).into());
+            format!("Failed to load watermark image: {}", e)
+        })?;
     
-    // 调整水印图片大小
-    if let Some(width) = config.width {
-        let height = config.height.unwrap_or((watermark_img.height() * width) / watermark_img.width());
-        if watermark_img.width() == 0 {
-            return Err("Watermark image has zero width width".to_string());
+    let original_width = watermark_img.width();
+    let original_height = watermark_img.height();
+    web_sys::console::log_1(&format!("水印图片加载成功，原始尺寸: {}x{}", original_width, original_height).into());
+    
+    // 调整水印图片大小（仅对图片水印有效，文字水印不调整大小）
+    if config.watermark_type == "image" {
+        if let Some(width) = config.width {
+            let height = config.height.unwrap_or((watermark_img.height() * width) / watermark_img.width());
+            if watermark_img.width() == 0 {
+                return Err("Watermark image has zero width".to_string());
+            }
+            web_sys::console::log_1(&format!("调整水印图片大小: {}x{} -> {}x{}",
+                watermark_img.width(), watermark_img.height(), width, height).into());
+            watermark_img = watermark_img.resize(width, height, image::imageops::FilterType::Lanczos3);
         }
-        watermark_img = watermark_img.resize(width, height, image::imageops::FilterType::Lanczos3);
+    } else {
+        web_sys::console::log_1(&format!("文字水印不调整大小，保持原始尺寸: {}x{}",
+            watermark_img.width(), watermark_img.height()).into());
     }
     
     // 旋转图片
@@ -152,7 +187,59 @@ fn load_and_prepare_watermark(
     Ok(watermark_img.to_rgba8())
 }
 
-// 旋转图片（使用最近邻插值，SIMD 优化版本）
+// 双线性插值辅助函数
+fn bilinear_interpolate(
+    img_data: &[u8],
+    width: usize,
+    height: usize,
+    x: f32,
+    y: f32,
+) -> [u8; 4] {
+    let x0 = x.floor() as i32;
+    let y0 = y.floor() as i32;
+    let x1 = x0 + 1;
+    let y1 = y0 + 1;
+    
+    let fx = x - x.floor();
+    let fy = y - y.floor();
+    
+    // 边界检查
+    let get_pixel = |xi: i32, yi: i32| -> [u8; 4] {
+        if xi >= 0 && xi < width as i32 && yi >= 0 && yi < height as i32 {
+            let idx = (yi as usize * width + xi as usize) * 4;
+            [img_data[idx], img_data[idx + 1], img_data[idx + 2], img_data[idx + 3]]
+        } else {
+            [0, 0, 0, 0]
+        }
+    };
+    
+    let p00 = get_pixel(x0, y0);
+    let p10 = get_pixel(x1, y0);
+    let p01 = get_pixel(x0, y1);
+    let p11 = get_pixel(x1, y1);
+    
+    let interpolate = |c00: u8, c10: u8, c01: u8, c11: u8| -> u8 {
+        let c00 = c00 as f32;
+        let c10 = c10 as f32;
+        let c01 = c01 as f32;
+        let c11 = c11 as f32;
+        
+        let top = c00 * (1.0 - fx) + c10 * fx;
+        let bottom = c01 * (1.0 - fx) + c11 * fx;
+        let result = top * (1.0 - fy) + bottom * fy;
+        
+        result.clamp(0.0, 255.0) as u8
+    };
+    
+    [
+        interpolate(p00[0], p10[0], p01[0], p11[0]),
+        interpolate(p00[1], p10[1], p01[1], p11[1]),
+        interpolate(p00[2], p10[2], p01[2], p11[2]),
+        interpolate(p00[3], p10[3], p01[3], p11[3]),
+    ]
+}
+
+// 旋转图片（使用双线性插值，提高清晰度）
 fn rotate_image(img: &DynamicImage, angle_degrees: f32) -> DynamicImage {
     if angle_degrees == 0.0 {
         return img.clone();
@@ -174,82 +261,40 @@ fn rotate_image(img: &DynamicImage, angle_degrees: f32) -> DynamicImage {
     let new_center_x = new_width as f32 / 2.0;
     let new_center_y = new_height as f32 / 2.0;
     
-    // 转换为 RGBA8 以便快速访问
+    // 转换为 RGBA8 以便便快速访问
     let img_rgba = img.to_rgba8();
     let img_data = img_rgba.as_ref();
     let result_data = result.as_mut();
     
-    // SIMD 向量化常量
-    let cos_vec = f32x4::splat(cos_r);
-    let sin_vec = f32x4::splat(sin_r);
-    let neg_sin_vec = f32x4::splat(-sin_r);
-    let center_x_vec = f32x4::splat(center_x);
-    let center_y_vec = f32x4::splat(center_y);
-    let new_center_x_vec = f32x4::splat(new_center_x);
-    let new_center_y_vec = f32x4::splat(new_center_y);
+    let width_usize = width as usize;
+    let height_usize = height as usize;
+    let new_width_usize = new_width as usize;
     
-    // 按行处理，每行处理 4 个像素
+    // 按行处理每个像素
     for y in 0..new_height {
         let y_f32 = y as f32;
-        let y_vec = f32x4::splat(y_f32);
-        let rel_y_vec = y_vec - new_center_y_vec;
+        let rel_y = y_f32 - new_center_y;
         
-        let mut x = 0;
-        let simd_end = (new_width & !3) as usize; // 对齐到 4 像素边界
-        
-        while x < simd_end {
-            // 创建 x 坐标向量 (x, x+1, x+2, x+3)
-            let x_vec = f32x4::from([x as f32, (x + 1) as f32, (x + 2) as f32, (x + 3) as f32]);
-            let rel_x_vec = x_vec - new_center_x_vec;
-            
-            // 逆旋转到原图坐标（SIMD 计算）
-            let orig_x_vec = rel_x_vec * cos_vec + rel_y_vec * sin_vec + center_x_vec;
-            let orig_y_vec = rel_x_vec * neg_sin_vec + rel_y_vec * cos_vec + center_y_vec;
-            
-            // 处理 4 个像素
-            for i in 0..4 {
-                let orig_x = orig_x_vec.to_array()[i].round() as i32;
-                let orig_y = orig_y_vec.to_array()[i].round() as i32;
-                
-                if orig_x >= 0 && orig_x < width as i32 && orig_y >= 0 && orig_y < height as i32 {
-                    let orig_idx = (orig_y as usize * width as usize + orig_x as usize) * 4;
-                    let target_idx = (y as usize * new_width as usize + x + i) * 4;
-                    
-                    // 复制 4 个通道
-                    result_data[target_idx] = img_data[orig_idx];
-                    result_data[target_idx + 1] = img_data[orig_idx + 1];
-                    result_data[target_idx + 2] = img_data[orig_idx + 2];
-                    result_data[target_idx + 3] = img_data[orig_idx + 3];
-                }
-            }
-            
-            x += 4;
-        }
-        
-        // 处理剩余的像素（非 SIMD 部分）
-        while x < new_width as usize {
-            let rel_x = x as f32 - new_center_x;
-            let rel_y = y_f32 - new_center_y;
+        for x in 0..new_width {
+            let x_f32 = x as f32;
+            let rel_x = x_f32 - new_center_x;
             
             // 逆旋转到原图坐标
             let orig_x = rel_x * cos_r + rel_y * sin_r + center_x;
             let orig_y = -rel_x * sin_r + rel_y * cos_r + center_y;
             
-            // 边界检查和最近邻采样
-            let orig_x_u32 = orig_x.round() as i32;
-            let orig_y_u32 = orig_y.round() as i32;
-            
-            if orig_x_u32 >= 0 && orig_x_u32 < width as i32 && orig_y_u32 >= 0 && orig_y_u32 < height as i32 {
-                let orig_idx = (orig_y_u32 as usize * width as usize + orig_x_u32 as usize) * 4;
-                let target_idx = (y as usize * new_width as usize + x) * 4;
+            // 边界检查
+            if orig_x >= 0.0 && orig_x < width as f32 - 1.0 &&
+               orig_y >= 0.0 && orig_y < height as f32 - 1.0 {
+                // 使用双线性插值
+                let pixel = bilinear_interpolate(img_data, width_usize, height_usize, orig_x, orig_y);
+                let target_idx = (y as usize * new_width_usize + x as usize) * 4;
                 
-                result_data[target_idx] = img_data[orig_idx];
-                result_data[target_idx + 1] = img_data[orig_idx + 1];
-                result_data[target_idx + 2] = img_data[orig_idx + 2];
-                result_data[target_idx + 3] = img_data[orig_idx + 3];
+                result_data[target_idx] = pixel[0];
+                result_data[target_idx + 1] = pixel[1];
+                result_data[target_idx + 2] = pixel[2];
+                result_data[target_idx + 3] = pixel[3];
             }
-            
-            x += 1;
         }
     }
     
@@ -264,14 +309,16 @@ fn overlay_image_rgba_with_transparency(
     y: u32,
     transparency: f32
 ) {
+    web_sys::console::log_1(&format!("开始叠加图片，位置: ({}, {}), 透明度: {}", x, y, transparency).into());
+    
     let (target_width, target_height) = target.dimensions();
     let (overlay_width, overlay_height) = overlay.dimensions();
     
+    web_sys::console::log_1(&format!("目标图片尺寸: {}x{}, 水印图片尺寸: {}x{}",
+        target_width, target_height, overlay_width, overlay_height).into());
+    
     // 预计算透明度因子
     let transparency_factor = transparency;
-    let transparency_vec = f32x4::splat(transparency_factor);
-    let one_vec = f32x4::splat(1.0);
-    let inv_255_vec = f32x4::splat(1.0 / 255.0);
     
     // 获取像素数据切片
     let target_data = target.as_mut();
@@ -284,48 +331,64 @@ fn overlay_image_rgba_with_transparency(
     let end_y = (start_y + overlay_height as usize).min(target_height as usize);
     
     // SIMD 优化的像素混合
+    web_sys::console::log_1(&format!("开始像素混合，处理区域: ({}, {}) 到 ({}, {})",
+        start_x, start_y, end_x, end_y).into());
+    
+    // 添加像素级别的调试信息
+    let mut debug_pixel_count = 0;
+    let max_debug_pixels = 10; // 最多调试10个像素
+    
     for oy in 0..(end_y - start_y) {
         let overlay_row_start = oy * overlay_width as usize * 4;
         let target_row_start = (start_y + oy) * target_width as usize * 4 + start_x * 4;
         
-        // 处理每一行，每次处理 4 个像素（16 字节）
+        // 处理每一行，每次处理 1 个像素（4 字节）
         let mut ox = 0;
-        let simd_end = (end_x - start_x) & !3; // 对齐到 4 像素边界
         
-        while ox < simd_end {
+        while ox < (end_x - start_x) {
             let overlay_idx = overlay_row_start + ox * 4;
             let target_idx = target_row_start + ox * 4;
-            
-            // 加载 4 个像素值（RGBA）
+             
+            // 加载像素值（RGBA）
             let overlay_r = overlay_data[overlay_idx] as f32;
             let overlay_g = overlay_data[overlay_idx + 1] as f32;
             let overlay_b = overlay_data[overlay_idx + 2] as f32;
             let overlay_a = overlay_data[overlay_idx + 3] as f32;
-            
+             
             let target_r = target_data[target_idx] as f32;
             let target_g = target_data[target_idx + 1] as f32;
             let target_b = target_data[target_idx + 2] as f32;
             let target_a = target_data[target_idx + 3] as f32;
-            
-            // 使用 SIMD 计算透明度
-            let overlay_vec = f32x4::from([overlay_r, overlay_g, overlay_b, overlay_a]);
-            let target_vec = f32x4::from([target_r, target_g, target_b, target_a]);
-            
-            // 计算透明度
-            let alpha = overlay_vec * inv_255_vec * transparency_vec;
-            let inv_alpha = one_vec - alpha;
-            
-            // 混合像素
-            let blended = target_vec * inv_alpha + overlay_vec * alpha;
-            
+             
+            // 正确的透明度计算：基于overlay的alpha通道
+            let overlay_alpha = overlay_a / 255.0 * transparency_factor;
+            let inv_alpha = 1.0 - overlay_alpha;
+             
+            // 只混合RGB通道，alpha通道单独处理
+            let result_r = target_r * inv_alpha + overlay_r * overlay_alpha;
+            let result_g = target_g * inv_alpha + overlay_g * overlay_alpha;
+            let result_b = target_b * inv_alpha + overlay_b * overlay_alpha;
+            let result_a = target_a + overlay_alpha * (255.0 - target_a) / 255.0;
+             
             // 存储结果
-            let blended_array = blended.to_array();
-            target_data[target_idx] = blended_array[0] as u8;
-            target_data[target_idx + 1] = blended_array[1] as u8;
-            target_data[target_idx + 2] = blended_array[2] as u8;
-            target_data[target_idx + 3] = blended_array[3] as u8;
-            
-            ox += 4;
+            target_data[target_idx] = result_r as u8;
+            target_data[target_idx + 1] = result_g as u8;
+            target_data[target_idx + 2] = result_b as u8;
+            target_data[target_idx + 3] = result_a as u8;
+             
+            // 调试前几个像素
+            if debug_pixel_count < max_debug_pixels {
+                web_sys::console::log_1(&format!("像素{}: 目标=({},{},{},{}) 水印=({},{},{},{}) 透明度={} 结果=({},{},{},{})",
+                    debug_pixel_count,
+                    target_r as u8, target_g as u8, target_b as u8, target_a as u8,
+                    overlay_r as u8, overlay_g as u8, overlay_b as u8, overlay_a as u8,
+                    transparency_factor,
+                    result_r as u8, result_g as u8, result_b as u8, result_a as u8
+                ).into());
+                debug_pixel_count += 1;
+            }
+             
+            ox += 1;
         }
         
         // 处理剩余的像素（非 SIMD 部分）
@@ -363,6 +426,8 @@ fn apply_watermark(
     img: &mut DynamicImage,
     config: &WatermarkConfig,
 ) -> Result<(), String> {
+    web_sys::console::log_1(&format!("开始应用水印").into());
+    
     // 验证配置
     validate_config(config)?;
     
@@ -375,8 +440,14 @@ fn apply_watermark(
     let y_offset = config.y_offset.unwrap_or(10);
     let tile = config.tile.unwrap_or(false);
     
+    web_sys::console::log_1(&format!("水印参数: 透明度={}, X偏移={}, Y偏移={}, 平铺={}",
+        transparency, x_offset, y_offset, tile).into());
+    
     let (img_width, img_height) = img.dimensions();
     let (wm_width, wm_height) = watermark_rgba.dimensions();
+    
+    web_sys::console::log_1(&format!("原始图片尺寸: {}x{}, 水印尺寸: {}x{}",
+        img_width, img_height, wm_width, wm_height).into());
     
     if tile {
         // 平铺水印 - 优化版本：只转换一次目标图片

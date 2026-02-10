@@ -323,6 +323,83 @@
     .tab-content.active {
       display: block;
     }
+
+    /* 全屏预览样式 */
+    .image-preview-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.9);
+      z-index: 9999;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      cursor: zoom-out;
+    }
+
+    .image-preview-overlay.active {
+      display: flex;
+    }
+
+    .image-preview-container {
+      max-width: 90vw;
+      max-height: 90vh;
+      position: relative;
+    }
+
+    .image-preview-container img {
+      max-width: 100%;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .image-preview-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      color: white;
+      font-size: 32px;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: background-color 0.3s;
+    }
+
+    .image-preview-close:hover {
+      background-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .image-preview-title {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      max-width: calc(100% - 80px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-box img {
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .preview-box img:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
   </style>
 </head>
 <body>
@@ -363,6 +440,7 @@
           <div class="control-group">
             <label>字体颜色</label>
             <input type="color" id="fontColor" value="#FFFFFF">
+            <small style="color: #666; display: block; margin-top: 5px;">建议使用白色或浅色</small>
           </div>
           <div class="control-group">
             <label>不透明度</label>
@@ -370,7 +448,7 @@
           </div>
           <div class="control-group">
             <label>旋转角度</label>
-            <input type="range" id="rotate" value="0" min="-360" max="360">
+            <input type="number" id="rotate" value="0" min="-360" max="360">
           </div>
           <div class="control-group">
             <label>X 轴偏移</label>
@@ -415,7 +493,7 @@
           </div>
           <div class="control-group">
             <label>旋转角度</label>
-            <input type="range" id="imageRotate" value="0" min="-360" max="360">
+            <input type="number" id="imageRotate" value="0" min="-360" max="360">
           </div>
           <div class="control-group">
             <label>X 轴偏移</label>
@@ -484,6 +562,15 @@
         </div>
       </div>
     </div>
+
+    <!-- 全屏预览遮罩层 -->
+    <div class="image-preview-overlay" id="imagePreviewOverlay" onclick="closeImagePreview()">
+      <div class="image-preview-container" onclick="event.stopPropagation()">
+        <div class="image-preview-title" id="imagePreviewTitle"></div>
+        <div class="image-preview-close" onclick="closeImagePreview()">×</div>
+        <img id="imagePreviewImg" src="" alt="预览图片">
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -543,7 +630,7 @@
         // 显示原始图片预览
         const reader = new FileReader();
         reader.onload = (e) => {
-          originalPreview.innerHTML = `<img src="${e.target.result}" alt="原始图片">`;
+          originalPreview.innerHTML = `<img src="${e.target.result}" alt="原始图片" onclick="openImagePreview('${e.target.result}', '原始图片')">`;
         };
         reader.readAsDataURL(file);
       }
@@ -610,16 +697,33 @@
 
         if (currentTab === 'text') {
           // 文字水印配置
-          config = createTextWatermarkConfig({
-            text: document.getElementById('watermarkText').value,
-            fontSize: parseInt(document.getElementById('fontSize').value),
-            fontColor: document.getElementById('fontColor').value,
+          const watermarkText = document.getElementById('watermarkText').value;
+          const fontSize = parseInt(document.getElementById('fontSize').value);
+          const fontColor = document.getElementById('fontColor').value;
+          
+          console.log('文字水印配置:', {
+            text: watermarkText,
+            fontSize: fontSize,
+            fontColor: fontColor,
             transparency: parseFloat(document.getElementById('transparency').value),
             rotate: parseInt(document.getElementById('rotate').value),
             xOffset: parseInt(document.getElementById('xOffset').value),
             yOffset: parseInt(document.getElementById('yOffset').value),
             tile: document.getElementById('tile').checked
           });
+          
+          config = createTextWatermarkConfig({
+            text: watermarkText,
+            fontSize: fontSize,
+            fontColor: fontColor,
+            transparency: parseFloat(document.getElementById('transparency').value),
+            rotate: parseInt(document.getElementById('rotate').value),
+            xOffset: parseInt(document.getElementById('xOffset').value),
+            yOffset: parseInt(document.getElementById('yOffset').value),
+            tile: document.getElementById('tile').checked
+          });
+          
+          console.log('生成的配置对象:', config);
         } else {
           // 图片水印配置
           if (!watermarkFile) {
@@ -657,7 +761,7 @@
 
         // 显示结果
         const imageUrl = URL.createObjectURL(watermarkedBlob);
-        watermarkedPreview.innerHTML = `<img src="${imageUrl}" alt="水印后图片">`;
+        watermarkedPreview.innerHTML = `<img src="${imageUrl}" alt="水印后图片" onclick="openImagePreview('${imageUrl}', '水印后图片')">`;
         
         // 显示耗时信息
         document.getElementById('elapsedTime').textContent = elapsedTime;
@@ -717,6 +821,40 @@
       status.textContent = message;
       status.className = `status ${type}`;
     }
+
+    // 打开图片全屏预览
+    function openImagePreview(url, title) {
+      const overlay = document.getElementById('imagePreviewOverlay');
+      const img = document.getElementById('imagePreviewImg');
+      const titleEl = document.getElementById('imagePreviewTitle');
+      
+      img.src = url;
+      titleEl.textContent = title || '图片预览';
+      overlay.classList.add('active');
+      
+      // 阻止页面滚动
+      document.body.style.overflow = 'hidden';
+    }
+    
+    // 关闭图片全屏预览
+    function closeImagePreview() {
+      const overlay = document.getElementById('imagePreviewOverlay');
+      overlay.classList.remove('active');
+      
+      // 恢复页面滚动
+      document.body.style.overflow = '';
+    }
+    
+    // 键盘事件：ESC 关闭预览
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeImagePreview();
+      }
+    });
+    
+    // 暴露预览函数到全局作用域
+    window.openImagePreview = openImagePreview;
+    window.closeImagePreview = closeImagePreview;
   </script>
 </body>
 </html>

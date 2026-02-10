@@ -13,7 +13,6 @@ wasm-opt = [
     "--enable-simd",             # SIMD 支持
     "--enable-bulk-memory",       # 批量内存操作
     "--enable-sign-ext",          # 符号扩展
-    "--inline-literal-all",       # 内联所有字面量
     "--vacuum",                 # 移除未使用的代码
     "--dce",                   # 死代码消除
     "--rse",                   # 冗余存储消除
