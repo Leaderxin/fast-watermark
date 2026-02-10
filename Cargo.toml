@@ -13,13 +13,12 @@ wasm-opt = [
     "--enable-simd",             # SIMD 支持
     "--enable-bulk-memory",       # 批量内存操作
     "--enable-sign-ext",          # 符号扩展
+    "--enable-nontrapping-float-to-int",  # 非陷阱浮点到整数转换
     "--vacuum",                 # 移除未使用的代码
     "--dce",                   # 死代码消除
     "--rse",                   # 冗余存储消除
     "--optimize-instructions",      # 指令优化
-    "--optimize-globals",         # 全局变量优化
     "--merge-blocks",            # 块合并
-    "--",                       # 空字符串分隔
 ]
 
 [dependencies]

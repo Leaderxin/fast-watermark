@@ -1,6 +1,8 @@
-# watermark-plus
+# fast-watermark
 
-[![npm version](https://badge.fury.io/js/watermark-plus.svg)](https://www.npmjs.com/package/watermark-plus)
+[![npm version](https://badge.fury.io/js/fast-watermark.svg)](https://www.npmjs.com/package/fast-watermark)
+[![npm downloads](https://img.shields.io/npm/dt/fast-watermark.svg)](https://www.npmjs.com/package/fast-watermark)
+[![GitHub stars](https://img.shields.io/github/stars/Leaderxin/fast-watermark.svg)](https://github.com/Leaderxin/fast-watermark)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 高性能图片水印库，基于 **Rust + WebAssembly** 实现，支持文字和图片水印。
@@ -19,11 +21,11 @@
 ## 📦 安装
 
 ```bash
-npm install watermark-plus
+npm install fast-watermark
 # 或
-yarn add watermark-plus
+yarn add fast-watermark
 # 或
-pnpm add watermark-plus
+pnpm add fast-watermark
 ```
 
 ## 🚀 快速开始
@@ -31,7 +33,7 @@ pnpm add watermark-plus
 ### 基础使用
 
 ```javascript
-import { addWatermark, createTextWatermarkConfig } from 'watermark-plus';
+import { addWatermark, createTextWatermarkConfig } from 'fast-watermark';
 
 // 创建文字水印配置
 const config = createTextWatermarkConfig({
@@ -61,7 +63,7 @@ const imageUrl = URL.createObjectURL(watermarkedBlob);
 
 <script setup>
 import { ref } from 'vue';
-import { addWatermark, createTextWatermarkConfig } from 'watermark-plus';
+import { addWatermark, createTextWatermarkConfig } from 'fast-watermark';
 
 const resultImage = ref(null);
 
@@ -88,7 +90,7 @@ async function handleFileChange(event) {
 
 ```jsx
 import React, { useState } from 'react';
-import { addWatermark, createTextWatermarkConfig } from 'watermark-plus';
+import { addWatermark, createTextWatermarkConfig } from 'fast-watermark';
 
 function WatermarkExample() {
   const [resultImage, setResultImage] = useState(null);
@@ -313,7 +315,7 @@ const config = createTextWatermarkConfig({
 ### 2. 批量处理图片（推荐使用多线程）
 
 ```javascript
-import { addWatermarkBatch, initWorkerPool, terminateWorkerPool } from 'watermark-plus';
+import { addWatermarkBatch, initWorkerPool, terminateWorkerPool } from 'fast-watermark';
 
 async function processImages(files) {
   // 初始化 Worker 池
@@ -377,7 +379,7 @@ const config = createTextWatermarkConfig({
 默认情况下，WASM 模块会在第一次使用时自动初始化。你也可以手动初始化：
 
 ```javascript
-import { init } from 'watermark-plus';
+import { init } from 'fast-watermark';
 
 // 手动初始化
 await init();
@@ -391,7 +393,7 @@ await init('/path/to/wasm_watermark_bg.wasm');
 如果需要更底层的控制，可以直接使用 WASM 函数：
 
 ```javascript
-import { wasmFunctions, imageToUint8Array, uint8ArrayToBlob } from 'watermark-plus';
+import { wasmFunctions, imageToUint8Array, uint8ArrayToBlob } from 'fast-watermark';
 
 const imageBytes = await imageToUint8Array(imageFile);
 const config = { /* ... */ };
@@ -411,7 +413,7 @@ import {
   addWatermarkWithWorkers,
   getWorkerPoolStatus,
   terminateWorkerPool
-} from 'watermark-plus';
+} from 'fast-watermark';
 
 // 初始化 Worker 池（指定最大 Worker 数量）
 await initWorkerPool(4);
@@ -433,7 +435,7 @@ terminateWorkerPool();
 
 - **处理速度**：快 10-100 倍
 - **内存占用**：减少 50-70%
-- **文件大小**：WASM 文件仅约 100KB（gzip 后约 30KB）
+- **文件大小**：WASM 文件仅约 500KB（gzip 后约 150KB）
 
 ## 🌐 浏览器支持
 
@@ -448,8 +450,8 @@ terminateWorkerPool();
 
 ```bash
 # 克隆仓库
-git clone https://github.com/Leaderxin/watermark-plus.git
-cd watermark-plus
+git clone https://github.com/Leaderxin/fast-watermark.git
+cd fast-watermark
 
 # 安装 Rust 工具链（如果尚未安装）
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -494,7 +496,7 @@ npm test
 
 ## 📮 联系方式
 
-- 问题反馈：[GitHub Issues](https://github.com/Leaderxin/watermark-plus/issues)
+- 问题反馈：[GitHub Issues](https://github.com/Leaderxin/fast-watermark/issues)
 - 邮箱：shazhoulen@outlook.com
 
 ---

@@ -3,7 +3,6 @@ use image::{DynamicImage, RgbaImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use wide::f32x4;
 
 // 只在开发时启用 panic hook
 #[cfg(feature = "console_error_panic_hook")]

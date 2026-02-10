@@ -113,6 +113,20 @@ export interface RenderTextOptions {
 }
 
 /**
+ * Worker池状态
+ */
+export interface WorkerPoolStatus {
+  /** 是否已初始化 */
+  initialized: boolean;
+  /** Worker数量 */
+  workerCount: number;
+  /** 活跃的Worker数量 */
+  activeWorkers: number;
+  /** 队列长度 */
+  queueLength: number;
+}
+
+/**
  * WASM函数接口
  */
 export interface WasmFunctions {
@@ -209,6 +223,40 @@ export function addWatermark(image: File | Blob | ArrayBuffer | Uint8Array, conf
  * @returns 处理后的图片Blob
  */
 export function addWatermarkAsync(image: File | Blob | ArrayBuffer | Uint8Array, config: WatermarkConfig): Promise<Blob>;
+
+/**
+ * 使用Worker池添加水印（多线程处理）
+ * @param image - 图片数据
+ * @param config - 水印配置
+ * @returns 处理后的图片Blob
+ */
+export function addWatermarkWithWorkers(image: File | Blob | ArrayBuffer | Uint8Array, config: WatermarkConfig): Promise<Blob>;
+
+/**
+ * 批量处理多个图片（多线程）
+ * @param images - 图片数组
+ * @param config - 水印配置
+ * @returns 处理后的图片Blob数组
+ */
+export function addWatermarkBatch(images: Array<File | Blob | ArrayBuffer | Uint8Array>, config: WatermarkConfig): Promise<Array<Blob>>;
+
+/**
+ * 初始化Worker池
+ * @param maxWorkers - 最大Worker数量，默认为CPU核心数
+ * @returns Promise<void>
+ */
+export function initWorkerPool(maxWorkers?: number): Promise<void>;
+
+/**
+ * 关闭Worker池，释放资源
+ */
+export function terminateWorkerPool(): void;
+
+/**
+ * 获取Worker池状态
+ * @returns Worker池状态信息
+ */
+export function getWorkerPoolStatus(): WorkerPoolStatus;
 
 /**
  * WASM底层函数
