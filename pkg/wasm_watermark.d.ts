@@ -23,9 +23,9 @@ export interface InitOutput {
     readonly add_watermark_async: (a: number, b: number, c: number) => number;
     readonly init: () => void;
     readonly watermarkerror_message: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_367: (a: number, b: number) => void;
-    readonly __wasm_bindgen_func_elem_688: (a: number, b: number, c: number, d: number) => void;
-    readonly __wasm_bindgen_func_elem_373: (a: number, b: number, c: number) => void;
+    readonly __wasm_bindgen_func_elem_365: (a: number, b: number) => void;
+    readonly __wasm_bindgen_func_elem_474: (a: number, b: number, c: number, d: number) => void;
+    readonly __wasm_bindgen_func_elem_371: (a: number, b: number, c: number) => void;
     readonly __wbindgen_export: (a: number, b: number) => number;
     readonly __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_export3: (a: number) => void;

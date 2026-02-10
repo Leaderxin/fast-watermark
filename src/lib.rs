@@ -110,12 +110,12 @@ fn validate_config(config: &WatermarkConfig) -> Result<(), String> {
 
 // 解码base64图片数据
 fn decode_base64_image(image_data: &str) -> Result<Vec<u8>, String> {
-    web_sys::console::log_1(&format!("开始解码base64图片数据，原始数据长度: {}", image_data.len()).into());
+    // web_sys::console::log_1(&format!("开始解码base64图片数据，原始数据长度: {}", image_data.len()).into());
     
     let base64_data = image_data.trim_start_matches("data:image/");
     let base64_data = base64_data.split(',').nth(1).unwrap_or(image_data);
     
-    web_sys::console::log_1(&format!("处理后base64数据长度: {}", base64_data.len()).into());
+    // web_sys::console::log_1(&format!("处理后base64数据长度: {}", base64_data.len()).into());
     
     if base64_data.is_empty() {
         return Err("Empty base64 data".to_string());
@@ -124,14 +124,14 @@ fn decode_base64_image(image_data: &str) -> Result<Vec<u8>, String> {
     let result = STANDARD.decode(base64_data)
         .map_err(|e| format!("Failed to decode base64: {}", e));
     
-    match &result {
-        Ok(data) => {
-            web_sys::console::log_1(&format!("base64解码成功，解码后数据长度: {}", data.len()).into());
-        }
-        Err(e) => {
-            web_sys::console::log_1(&format!("base64解码失败: {}", e).into());
-        }
-    }
+    // match &result {
+    //     Ok(data) => {
+    //         web_sys::console::log_1(&format!("base64解码成功，解码后数据长度: {}", data.len()).into());
+    //     }
+    //     Err(e) => {
+    //         web_sys::console::log_1(&format!("base64解码失败: {}", e).into());
+    //     }
+    // }
     
     result
 }
@@ -140,28 +140,24 @@ fn decode_base64_image(image_data: &str) -> Result<Vec<u8>, String> {
 fn load_and_prepare_watermark(
     config: &WatermarkConfig,
 ) -> Result<RgbaImage, String> {
-    web_sys::console::log_1(&format!("开始加载并准备水印图片").into());
+    // web_sys::console::log_1(&format!("开始加载并准备水印图片").into());
     
     let image_data = config.image_data.as_ref()
         .ok_or("image_data parameter is required")?;
     
-    web_sys::console::log_1(&format!("水印配置中的image_data存在，长度: {}", image_data.len()).into());
+    // web_sys::console::log_1(&format!("水印配置中的image_data存在，长度: {}", image_data.len()).into());
     
     // 解码base64图片数据
     let image_bytes = decode_base64_image(image_data)?;
     
-    web_sys::console::log_1(&format!("开始从内存加载图片，数据长度: {}", image_bytes.len()).into());
+    // web_sys::console::log_1(&format!("开始从内存加载图片，数据长度: {}", image_bytes.len()).into());
     
     // 加载图片
     let mut watermark_img = image::load_from_memory(&image_bytes)
         .map_err(|e| {
-            web_sys::console::log_1(&format!("图片加载失败: {}", e).into());
+            // web_sys::console::log_1(&format!("图片加载失败: {}", e).into());
             format!("Failed to load watermark image: {}", e)
         })?;
-    
-    let original_width = watermark_img.width();
-    let original_height = watermark_img.height();
-    web_sys::console::log_1(&format!("水印图片加载成功，原始尺寸: {}x{}", original_width, original_height).into());
     
     // 调整水印图片大小（仅对图片水印有效，文字水印不调整大小）
     if config.watermark_type == "image" {
@@ -170,13 +166,13 @@ fn load_and_prepare_watermark(
             if watermark_img.width() == 0 {
                 return Err("Watermark image has zero width".to_string());
             }
-            web_sys::console::log_1(&format!("调整水印图片大小: {}x{} -> {}x{}",
-                watermark_img.width(), watermark_img.height(), width, height).into());
+            // web_sys::console::log_1(&format!("调整水印图片大小: {}x{} -> {}x{}",
+            //     watermark_img.width(), watermark_img.height(), width, height).into());
             watermark_img = watermark_img.resize(width, height, image::imageops::FilterType::Lanczos3);
         }
     } else {
-        web_sys::console::log_1(&format!("文字水印不调整大小，保持原始尺寸: {}x{}",
-            watermark_img.width(), watermark_img.height()).into());
+        // web_sys::console::log_1(&format!("文字水印不调整大小，保持原始尺寸: {}x{}",
+        //     watermark_img.width(), watermark_img.height()).into());
     }
     
     // 旋转图片
@@ -308,13 +304,13 @@ fn overlay_image_rgba_with_transparency(
     y: u32,
     transparency: f32
 ) {
-    web_sys::console::log_1(&format!("开始叠加图片，位置: ({}, {}), 透明度: {}", x, y, transparency).into());
+    // web_sys::console::log_1(&format!("开始叠加图片，位置: ({}, {}), 透明度: {}", x, y, transparency).into());
     
     let (target_width, target_height) = target.dimensions();
     let (overlay_width, overlay_height) = overlay.dimensions();
     
-    web_sys::console::log_1(&format!("目标图片尺寸: {}x{}, 水印图片尺寸: {}x{}",
-        target_width, target_height, overlay_width, overlay_height).into());
+    // web_sys::console::log_1(&format!("目标图片尺寸: {}x{}, 水印图片尺寸: {}x{}",
+    //     target_width, target_height, overlay_width, overlay_height).into());
     
     // 预计算透明度因子
     let transparency_factor = transparency;
@@ -330,12 +326,12 @@ fn overlay_image_rgba_with_transparency(
     let end_y = (start_y + overlay_height as usize).min(target_height as usize);
     
     // SIMD 优化的像素混合
-    web_sys::console::log_1(&format!("开始像素混合，处理区域: ({}, {}) 到 ({}, {})",
-        start_x, start_y, end_x, end_y).into());
+    // web_sys::console::log_1(&format!("开始像素混合，处理区域: ({}, {}) 到 ({}, {})",
+    //     start_x, start_y, end_x, end_y).into());
     
     // 添加像素级别的调试信息
-    let mut debug_pixel_count = 0;
-    let max_debug_pixels = 10; // 最多调试10个像素
+    // let mut debug_pixel_count = 0;
+    // let max_debug_pixels = 10; // 最多调试10个像素
     
     for oy in 0..(end_y - start_y) {
         let overlay_row_start = oy * overlay_width as usize * 4;
@@ -376,16 +372,16 @@ fn overlay_image_rgba_with_transparency(
             target_data[target_idx + 3] = result_a as u8;
              
             // 调试前几个像素
-            if debug_pixel_count < max_debug_pixels {
-                web_sys::console::log_1(&format!("像素{}: 目标=({},{},{},{}) 水印=({},{},{},{}) 透明度={} 结果=({},{},{},{})",
-                    debug_pixel_count,
-                    target_r as u8, target_g as u8, target_b as u8, target_a as u8,
-                    overlay_r as u8, overlay_g as u8, overlay_b as u8, overlay_a as u8,
-                    transparency_factor,
-                    result_r as u8, result_g as u8, result_b as u8, result_a as u8
-                ).into());
-                debug_pixel_count += 1;
-            }
+            // if debug_pixel_count < max_debug_pixels {
+            //     web_sys::console::log_1(&format!("像素{}: 目标=({},{},{},{}) 水印=({},{},{},{}) 透明度={} 结果=({},{},{},{})",
+            //         debug_pixel_count,
+            //         target_r as u8, target_g as u8, target_b as u8, target_a as u8,
+            //         overlay_r as u8, overlay_g as u8, overlay_b as u8, overlay_a as u8,
+            //         transparency_factor,
+            //         result_r as u8, result_g as u8, result_b as u8, result_a as u8
+            //     ).into());
+            //     debug_pixel_count += 1;
+            // }
              
             ox += 1;
         }
@@ -425,7 +421,7 @@ fn apply_watermark(
     img: &mut DynamicImage,
     config: &WatermarkConfig,
 ) -> Result<(), String> {
-    web_sys::console::log_1(&format!("开始应用水印").into());
+    // web_sys::console::log_1(&format!("开始应用水印").into());
     
     // 验证配置
     validate_config(config)?;
@@ -439,14 +435,14 @@ fn apply_watermark(
     let y_offset = config.y_offset.unwrap_or(10);
     let tile = config.tile.unwrap_or(false);
     
-    web_sys::console::log_1(&format!("水印参数: 透明度={}, X偏移={}, Y偏移={}, 平铺={}",
-        transparency, x_offset, y_offset, tile).into());
+    // web_sys::console::log_1(&format!("水印参数: 透明度={}, X偏移={}, Y偏移={}, 平铺={}",
+    //     transparency, x_offset, y_offset, tile).into());
     
     let (img_width, img_height) = img.dimensions();
     let (wm_width, wm_height) = watermark_rgba.dimensions();
     
-    web_sys::console::log_1(&format!("原始图片尺寸: {}x{}, 水印尺寸: {}x{}",
-        img_width, img_height, wm_width, wm_height).into());
+    // web_sys::console::log_1(&format!("原始图片尺寸: {}x{}, 水印尺寸: {}x{}",
+    //     img_width, img_height, wm_width, wm_height).into());
     
     if tile {
         // 平铺水印 - 优化版本：只转换一次目标图片

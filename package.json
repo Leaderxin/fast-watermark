@@ -1,6 +1,6 @@
 {
   "name": "fast-watermark",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "高性能图片水印库，基于Rust + WebAssembly实现，支持文字和图片水印",
   "keywords": [
     "watermark",

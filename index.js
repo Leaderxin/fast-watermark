@@ -32,7 +32,6 @@ async function init(wasmPath) {
     wasmModule = wasmPack;
     wasmInitialized = true;
   } catch (error) {
-    console.error('Failed to initialize WASM module:', error);
     throw new Error(`WASM initialization failed: ${error.message}`);
   }
 }
@@ -202,8 +201,6 @@ function renderTextToImage(text, options = {}) {
   const font = options.font || 'Arial';
   const padding = 10;
 
-  console.log('renderTextToImage参数:', { text, fontSize, fontColor, font, padding });
-
   // 使用Canvas来精确测量文字尺寸
   const measureCanvas = document.createElement('canvas');
   const measureCtx = measureCanvas.getContext('2d');
@@ -217,8 +214,6 @@ function renderTextToImage(text, options = {}) {
   // 计算SVG的尺寸（包含padding）
   const svgWidth = textWidth + padding * 2;
   const svgHeight = textHeight + padding * 2;
-
-  console.log('文字尺寸计算:', { textWidth, textHeight, svgWidth, svgHeight });
 
   // 使用SVG来渲染文字（更清晰）
   const svgString = `
@@ -253,47 +248,19 @@ function renderTextToImage(text, options = {}) {
       canvas.width = svgWidth;
       canvas.height = svgHeight;
 
-      console.log('Canvas尺寸:', { width: canvas.width, height: canvas.height });
-
       // 绘制SVG到canvas
       ctx.drawImage(img, 0, 0);
 
       // 转换为base64
       const base64Data = canvas.toDataURL('image/png');
-      console.log('Base64转换完成，长度:', base64Data.length);
       
       // 清理
       URL.revokeObjectURL(svgUrl);
-      
-      // 创建调试预览
-      const debugDiv = document.createElement('div');
-      debugDiv.style.position = 'fixed';
-      debugDiv.style.top = '10px';
-      debugDiv.style.right = '10px';
-      debugDiv.style.zIndex = '10000';
-      debugDiv.style.backgroundColor = '#333333';
-      debugDiv.style.padding = '10px';
-      debugDiv.style.border = '2px solid red';
-      debugDiv.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 5px; color: white;">调试：SVG渲染的水印图片</div>
-        <img src="${base64Data}" style="border: 1px solid #ccc;">
-        <div style="margin-top: 5px; font-size: 12px; color: white;">尺寸: ${canvas.width}x${canvas.height}</div>
-        <button onclick="this.parentElement.remove()" style="margin-top: 5px; padding: 5px 10px;">关闭</button>
-      `;
-      document.body.appendChild(debugDiv);
-      
-      // 5秒后自动关闭
-      setTimeout(() => {
-        if (debugDiv.parentElement) {
-          debugDiv.remove();
-        }
-      }, 5000);
       
       resolve(base64Data);
     };
     
     img.onerror = (error) => {
-      console.error('SVG加载失败:', error);
       reject(error);
     };
     
@@ -320,16 +287,11 @@ async function addWatermark(image, config) {
 
   // 如果是文字水印且没有image_data，先渲染文字为图片
   if (config.type === 'text' && !config.image_data) {
-    console.log('检测到文字水印，开始渲染文字为图片...');
-    console.log('文字水印配置:', config);
     const renderedImage = await renderTextToImage(config.text, config);
-    console.log('渲染后的base64图片数据长度:', renderedImage.length);
-    console.log('渲染后的base64图片数据前100字符:', renderedImage.substring(0, 100));
     config = {
       ...config,
       image_data: renderedImage
     };
-    console.log('更新后的配置对象:', config);
   }
 
   try {
@@ -342,7 +304,6 @@ async function addWatermark(image, config) {
     // 转换为Blob
     return uint8ArrayToBlob(resultBytes, 'image/png');
   } catch (error) {
-    console.error('Failed to add watermark:', error);
     throw new Error(`Watermark processing failed: ${error.message}`);
   }
 }
@@ -367,16 +328,11 @@ async function addWatermarkAsync(image, config) {
 
   // 如果是文字水印且没有image_data，先渲染文字为图片
   if (config.type === 'text' && !config.image_data) {
-    console.log('检测到文字水印（异步），开始渲染文字为图片...');
-    console.log('文字水印配置:', config);
     const renderedImage = await renderTextToImage(config.text, config);
-    console.log('渲染后的base64图片数据长度:', renderedImage.length);
-    console.log('渲染后的base64图片数据前100字符:', renderedImage.substring(0, 100));
     config = {
       ...config,
       image_data: renderedImage
     };
-    console.log('更新后的配置对象:', config);
   }
 
   try {
@@ -389,7 +345,6 @@ async function addWatermarkAsync(image, config) {
     // 转换为Blob
     return uint8ArrayToBlob(resultBytes, 'image/png');
   } catch (error) {
-    console.error('Failed to add watermark (async):', error);
     throw new Error(`Watermark processing failed: ${error.message}`);
   }
 }
@@ -444,7 +399,6 @@ async function initWorkerPool(maxWorkers) {
     await workerPool.init();
     workerPoolInitialized = true;
   } catch (error) {
-    console.error('Failed to initialize worker pool:', error);
     throw new Error(`Worker pool initialization failed: ${error.message}`);
   }
 }
@@ -495,7 +449,6 @@ async function addWatermarkWithWorkers(image, config) {
       const blobData = resultBytes instanceof Uint8Array ? resultBytes : new Uint8Array(resultBytes);
       return uint8ArrayToBlob(blobData, 'image/png');
   } catch (error) {
-      console.error('Failed to add watermark with workers:', error);
       throw new Error(`Watermark processing failed: ${error.message}`);
   }
 }
@@ -540,7 +493,6 @@ async function addWatermarkBatch(images, config) {
           return uint8ArrayToBlob(blobData, 'image/png');
       });
   } catch (error) {
-      console.error('Failed to add watermark batch:', error);
       throw new Error(`Batch watermark processing failed: ${error.message}`);
   }
 }
