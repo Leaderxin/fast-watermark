@@ -16,7 +16,7 @@ export interface BaseWatermarkConfig {
   /** Y轴偏移 (像素) */
   y_offset?: number;
   /** 是否平铺 */
-  tile?: boolean;
+  batch?: boolean;
 }
 
 /**
@@ -75,7 +75,7 @@ export interface TextWatermarkOptions {
   /** Y轴偏移 (像素) */
   yOffset?: number;
   /** 是否平铺 */
-  tile?: boolean;
+  batch?: boolean;
 }
 
 /**
@@ -97,7 +97,7 @@ export interface ImageWatermarkOptions {
   /** Y轴偏移 (像素) */
   yOffset?: number;
   /** 是否平铺 */
-  tile?: boolean;
+  batch?: boolean;
 }
 
 /**

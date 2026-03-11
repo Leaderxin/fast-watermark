@@ -461,7 +461,7 @@
           <div class="control-group">
             <label>平铺模式</label>
             <div class="checkbox-group">
-              <input type="checkbox" id="tile">
+              <input type="checkbox" id="batch">
               <span>启用平铺</span>
             </div>
           </div>
@@ -506,7 +506,7 @@
           <div class="control-group">
             <label>平铺模式</label>
             <div class="checkbox-group">
-              <input type="checkbox" id="imageTile">
+              <input type="checkbox" id="imageBatch">
               <span>启用平铺</span>
             </div>
           </div>
@@ -709,7 +709,7 @@
             rotate: parseInt(document.getElementById('rotate').value),
             xOffset: parseInt(document.getElementById('xOffset').value),
             yOffset: parseInt(document.getElementById('yOffset').value),
-            tile: document.getElementById('tile').checked
+            batch: document.getElementById('batch').checked
           });
           
           config = createTextWatermarkConfig({
@@ -720,7 +720,7 @@
             rotate: parseInt(document.getElementById('rotate').value),
             xOffset: parseInt(document.getElementById('xOffset').value),
             yOffset: parseInt(document.getElementById('yOffset').value),
-            tile: document.getElementById('tile').checked
+            batch: document.getElementById('batch').checked
           });
           
           console.log('生成的配置对象:', config);
@@ -741,7 +741,7 @@
             rotate: parseInt(document.getElementById('imageRotate').value),
             xOffset: parseInt(document.getElementById('imageXOffset').value),
             yOffset: parseInt(document.getElementById('imageYOffset').value),
-            tile: document.getElementById('imageTile').checked
+            batch: document.getElementById('imageBatch').checked
           });
         }
 

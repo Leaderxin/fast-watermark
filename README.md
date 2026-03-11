@@ -41,7 +41,7 @@ const config = createTextWatermarkConfig({
   fontSize: 30,
   fontColor: '#FFFFFF',
   transparency: 0.5,
-  tile: true
+  batch: true
 });
 
 // 添加水印
@@ -77,7 +77,7 @@ async function handleFileChange(event) {
     fontColor: 'rgba(255, 255, 255, 0.8)',
     transparency: 0.7,
     rotate: -30,
-    tile: true
+    batch: true
   });
 
   const watermarkedBlob = await addWatermark(file, config);
@@ -105,7 +105,7 @@ function WatermarkExample() {
       fontColor: '#FFFFFF',
       transparency: 0.7,
       rotate: -30,
-      tile: true
+      batch: true
     });
 
     const watermarkedBlob = await addWatermark(file, config);
@@ -213,7 +213,7 @@ const config = createTextWatermarkConfig({
   rotate: 0,
   xOffset: 10,
   yOffset: 10,
-  tile: false
+  batch: false
 });
 ```
 
@@ -237,7 +237,7 @@ const config = createImageWatermarkConfig({
   rotate: 0,
   xOffset: 10,
   yOffset: 10,
-  tile: false
+  batch: false
 });
 ```
 
@@ -277,7 +277,7 @@ const config = createImageWatermarkConfig({
 | `rotate` | `number` | `0` | 旋转角度（度，负值为逆时针） |
 | `x_offset` | `number` | `10` | X 轴偏移（像素） |
 | `y_offset` | `number` | `10` | Y 轴偏移（像素） |
-| `tile` | `boolean` | `false` | 是否平铺水印 |
+| `batch` | `boolean` | `false` | 是否平铺水印 |
 
 **注意：** `createTextWatermarkConfig` 函数支持驼峰命名（如 `fontSize`、`fontColor`）和下划线命名（如 `font_size`、`font_color`）两种方式。
 
@@ -293,7 +293,7 @@ const config = createImageWatermarkConfig({
 | `rotate` | `number` | `0` | 旋转角度（度） |
 | `x_offset` | `number` | `10` | X 轴偏移（像素） |
 | `y_offset` | `number` | `10` | Y 轴偏移（像素） |
-| `tile` | `boolean` | `false` | 是否平铺水印 |
+| `batch` | `boolean` | `false` | 是否平铺水印 |
 
 **注意：** `createImageWatermarkConfig` 函数支持驼峰命名（如 `xOffset`、`yOffset`）和下划线命名（如 `x_offset`、`y_offset`）两种方式。
 
@@ -326,7 +326,7 @@ async function processImages(files) {
     fontSize: 24,
     fontColor: '#FFFFFF',
     transparency: 0.5,
-    tile: true
+    batch: true
   });
 
   // 使用批量处理 API（多线程）
@@ -366,7 +366,7 @@ const config = createTextWatermarkConfig({
   fontColor: 'rgba(255, 0, 0, 0.3)',
   transparency: 0.3,
   rotate: -45,
-  tile: true,
+  batch: true,
   xOffset: 200,
   yOffset: 200
 });

@@ -25,7 +25,7 @@ pub struct WatermarkConfig {
     #[serde(default)]
     pub y_offset: Option<i32>,
     #[serde(default)]
-    pub tile: Option<bool>,
+    pub batch: Option<bool>,
     
     // 图片水印参数
     #[serde(default)]
@@ -44,7 +44,7 @@ impl Default for WatermarkConfig {
             rotate: Some(0.0),
             x_offset: Some(10),
             y_offset: Some(10),
-            tile: Some(false),
+            batch: Some(false),
             image_data: None,
             width: None,
             height: None,
@@ -433,10 +433,10 @@ fn apply_watermark(
     let transparency = config.transparency.unwrap_or(0.5);
     let x_offset = config.x_offset.unwrap_or(10);
     let y_offset = config.y_offset.unwrap_or(10);
-    let tile = config.tile.unwrap_or(false);
+    let batch = config.batch.unwrap_or(false);
     
     // web_sys::console::log_1(&format!("水印参数: 透明度={}, X偏移={}, Y偏移={}, 平铺={}",
-    //     transparency, x_offset, y_offset, tile).into());
+    //     transparency, x_offset, y_offset, batch).into());
     
     let (img_width, img_height) = img.dimensions();
     let (wm_width, wm_height) = watermark_rgba.dimensions();
@@ -444,7 +444,7 @@ fn apply_watermark(
     // web_sys::console::log_1(&format!("原始图片尺寸: {}x{}, 水印尺寸: {}x{}",
     //     img_width, img_height, wm_width, wm_height).into());
     
-    if tile {
+    if batch {
         // 平铺水印 - 优化版本：只转换一次目标图片
         let spacing_x = wm_width + x_offset.abs() as u32;
         let spacing_y = wm_height + y_offset.abs() as u32;

@@ -745,7 +745,7 @@
                             rotate: rotate,
                             xOffset: xOffset,
                             yOffset: yOffset,
-                            tile: true
+                            batch: true
                         });
                         
                         const result = await addWatermarkFunc(testImage.blob, config);
@@ -825,7 +825,7 @@
                 rotate: rotate,
                 xOffset: xOffset,
                 yOffset: yOffset,
-                tile: true
+                batch: true
             });
             
             // 单线程测试 - 串行处理所有图片

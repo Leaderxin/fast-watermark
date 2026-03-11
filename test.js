@@ -96,7 +96,7 @@ try {
   console.log('  配置:', JSON.stringify(defaultWatermarkConfig, null, 2));
 
   // 验证必需字段
-  const requiredFields = ['type', 'transparency', 'rotate', 'x_offset', 'y_offset', 'tile'];
+  const requiredFields = ['type', 'transparency', 'rotate', 'x_offset', 'y_offset', 'batch'];
   const missingFields = requiredFields.filter(field => !(field in defaultWatermarkConfig));
 
   if (missingFields.length === 0) {

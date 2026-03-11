@@ -193,7 +193,7 @@ function __wbg_get_imports() {
                     const a = state0.a;
                     state0.a = 0;
                     try {
-                        return __wasm_bindgen_func_elem_474(a, state0.b, arg0, arg1);
+                        return __wasm_bindgen_func_elem_475(a, state0.b, arg0, arg1);
                     } finally {
                         state0.a = a;
                     }
@@ -281,8 +281,8 @@ function __wasm_bindgen_func_elem_371(arg0, arg1, arg2) {
     wasm.__wasm_bindgen_func_elem_371(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wasm_bindgen_func_elem_474(arg0, arg1, arg2, arg3) {
-    wasm.__wasm_bindgen_func_elem_474(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
+function __wasm_bindgen_func_elem_475(arg0, arg1, arg2, arg3) {
+    wasm.__wasm_bindgen_func_elem_475(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
 const WatermarkErrorFinalization = (typeof FinalizationRegistry === 'undefined')
