@@ -27,6 +27,12 @@ pub struct WatermarkConfig {
     #[serde(default)]
     pub batch: Option<bool>,
     
+    // 平铺模式下的水印数量参数（优先于 x_offset/y_offset）
+    #[serde(default)]
+    pub x_count: Option<u32>,
+    #[serde(default)]
+    pub y_count: Option<u32>,
+    
     // 图片水印参数
     #[serde(default)]
     pub image_data: Option<String>, // base64编码的图片数据
@@ -45,6 +51,8 @@ impl Default for WatermarkConfig {
             x_offset: Some(10),
             y_offset: Some(10),
             batch: Some(false),
+            x_count: None,
+            y_count: None,
             image_data: None,
             width: None,
             height: None,
@@ -446,20 +454,82 @@ fn apply_watermark(
     
     if batch {
         // 平铺水印 - 优化版本：只转换一次目标图片
-        let spacing_x = wm_width + x_offset.abs() as u32;
-        let spacing_y = wm_height + y_offset.abs() as u32;
+        // 检查是否使用数量模式
+        let use_count_mode = config.x_count.is_some() || config.y_count.is_some();
         
-        // 计算起始位置（考虑偏移量）
-        let start_x = if x_offset >= 0 {
-            x_offset as u32
+        let (spacing_x, spacing_y, start_x, start_y) = if use_count_mode {
+            // 使用数量模式：根据数量平分间距
+            let x_count = config.x_count.unwrap_or(1).max(1);
+            let y_count = config.y_count.unwrap_or(1).max(1);
+            
+            // 计算步长：将图片宽度/高度平均分成 x_count/y_count 份
+            // 这样水印会均匀分布在图片上
+            let spacing_x = if x_count > 1 {
+                img_width / x_count
+            } else {
+                wm_width // 单个水印时，间距等于水印宽度
+            };
+            
+            let spacing_y = if y_count > 1 {
+                img_height / y_count
+            } else {
+                wm_height // 单个水印时，间距等于水印高度
+            };
+            
+            // 计算起始位置，使水印均匀分布，并加上偏移量
+            let start_x = if x_count > 1 {
+                // 多个水印时，从偏移量开始
+                if x_offset >= 0 {
+                    x_offset as u32
+                } else {
+                    0
+                }
+            } else {
+                // 单个水印时，居中并加上偏移量
+                let center_x = (img_width - wm_width) / 2;
+                if x_offset >= 0 {
+                    center_x + x_offset as u32
+                } else {
+                    (center_x as i32 + x_offset).max(0) as u32
+                }
+            };
+            
+            let start_y = if y_count > 1 {
+                // 多个水印时，从偏移量开始
+                if y_offset >= 0 {
+                    y_offset as u32
+                } else {
+                    0
+                }
+            } else {
+                // 单个水印时，居中并加上偏移量
+                let center_y = (img_height - wm_height) / 2;
+                if y_offset >= 0 {
+                    center_y + y_offset as u32
+                } else {
+                    (center_y as i32 + y_offset).max(0) as u32
+                }
+            };
+            
+            (spacing_x, spacing_y, start_x, start_y)
         } else {
-            0
-        };
-        
-        let start_y = if y_offset >= 0 {
-            y_offset as u32
-        } else {
-            0
+            // 使用原有的偏移量模式
+            let spacing_x = wm_width + x_offset.abs() as u32;
+            let spacing_y = wm_height + y_offset.abs() as u32;
+            
+            let start_x = if x_offset >= 0 {
+                x_offset as u32
+            } else {
+                0
+            };
+            
+            let start_y = if y_offset >= 0 {
+                y_offset as u32
+            } else {
+                0
+            };
+            
+            (spacing_x, spacing_y, start_x, start_y)
         };
         
         // 只转换一次目标图片为 RGBA8

@@ -17,6 +17,10 @@ export interface BaseWatermarkConfig {
   y_offset?: number;
   /** 是否平铺 */
   batch?: boolean;
+  /** 平铺模式下的X轴水印数量（优先于 x_offset） */
+  x_count?: number;
+  /** 平铺模式下的Y轴水印数量（优先于 y_offset） */
+  y_count?: number;
 }
 
 /**
@@ -76,6 +80,10 @@ export interface TextWatermarkOptions {
   yOffset?: number;
   /** 是否平铺 */
   batch?: boolean;
+  /** 平铺模式下的X轴水印数量（优先于 xOffset） */
+  xCount?: number;
+  /** 平铺模式下的Y轴水印数量（优先于 yOffset） */
+  yCount?: number;
 }
 
 /**
@@ -98,6 +106,10 @@ export interface ImageWatermarkOptions {
   yOffset?: number;
   /** 是否平铺 */
   batch?: boolean;
+  /** 平铺模式下的X轴水印数量（优先于 xOffset） */
+  xCount?: number;
+  /** 平铺模式下的Y轴水印数量（优先于 yOffset） */
+  yCount?: number;
 }
 
 /**

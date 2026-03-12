@@ -278,8 +278,14 @@ const config = createImageWatermarkConfig({
 | `x_offset` | `number` | `10` | X 轴偏移（像素） |
 | `y_offset` | `number` | `10` | Y 轴偏移（像素） |
 | `batch` | `boolean` | `false` | 是否平铺水印 |
+| `x_count` | `number` | - | 平铺模式下的 X 轴水印数量（优先于 x_offset） |
+| `y_count` | `number` | - | 平铺模式下的 Y 轴水印数量（优先于 y_offset） |
 
 **注意：** `createTextWatermarkConfig` 函数支持驼峰命名（如 `fontSize`、`fontColor`）和下划线命名（如 `font_size`、`font_color`）两种方式。
+
+**平铺模式说明：**
+- 使用 `x_offset`/`y_offset`：水印之间的间距由偏移量控制
+- 使用 `x_count`/`y_count`：水印数量固定，间距自动平分（优先级更高）
 
 ### 图片水印配置 (`ImageWatermarkConfig`)
 
@@ -294,8 +300,14 @@ const config = createImageWatermarkConfig({
 | `x_offset` | `number` | `10` | X 轴偏移（像素） |
 | `y_offset` | `number` | `10` | Y 轴偏移（像素） |
 | `batch` | `boolean` | `false` | 是否平铺水印 |
+| `x_count` | `number` | - | 平铺模式下的 X 轴水印数量（优先于 x_offset） |
+| `y_count` | `number` | - | 平铺模式下的 Y 轴水印数量（优先于 y_offset） |
 
 **注意：** `createImageWatermarkConfig` 函数支持驼峰命名（如 `xOffset`、`yOffset`）和下划线命名（如 `x_offset`、`y_offset`）两种方式。
+
+**平铺模式说明：**
+- 使用 `x_offset`/`y_offset`：水印之间的间距由偏移量控制
+- 使用 `x_count`/`y_count`：水印数量固定，间距自动平分（优先级更高）
 
 ## 🎯 使用场景
 
@@ -371,6 +383,28 @@ const config = createTextWatermarkConfig({
   yOffset: 200
 });
 ```
+
+### 5. 按数量平铺水印（新功能）
+
+使用 `x_count` 和 `y_count` 参数可以指定水印的数量，间距会自动平分：
+
+```javascript
+const config = createTextWatermarkConfig({
+  text: '© 2024',
+  fontSize: 24,
+  fontColor: '#FFFFFF',
+  transparency: 0.5,
+  rotate: -30,
+  batch: true,
+  xCount: 5,  // X轴显示5个水印
+  yCount: 3   // Y轴显示3个水印
+});
+```
+
+**说明：**
+- 当指定 `x_count` 或 `y_count` 时，系统会自动计算间距，使水印均匀分布
+- `x_count` 和 `y_count` 的优先级高于 `x_offset` 和 `y_offset`
+- 如果只指定其中一个，另一个会使用默认的偏移量模式
 
 ## 🔧 高级用法
 

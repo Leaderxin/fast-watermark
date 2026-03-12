@@ -465,6 +465,16 @@
               <span>启用平铺</span>
             </div>
           </div>
+          <div class="control-group">
+            <label>X 轴水印数量</label>
+            <input type="number" id="xCount" value="" min="1" max="20" placeholder="留空使用偏移量">
+            <small style="color: #666; display: block; margin-top: 5px;">留空则使用 X 轴偏移量</small>
+          </div>
+          <div class="control-group">
+            <label>Y 轴水印数量</label>
+            <input type="number" id="yCount" value="" min="1" max="20" placeholder="留空使用偏移量">
+            <small style="color: #666; display: block; margin-top: 5px;">留空则使用 Y 轴偏移量</small>
+          </div>
         </div>
       </div>
 
@@ -509,6 +519,16 @@
               <input type="checkbox" id="imageBatch">
               <span>启用平铺</span>
             </div>
+          </div>
+          <div class="control-group">
+            <label>X 轴水印数量</label>
+            <input type="number" id="imageXCount" value="" min="1" max="20" placeholder="留空使用偏移量">
+            <small style="color: #666; display: block; margin-top: 5px;">留空则使用 X 轴偏移量</small>
+          </div>
+          <div class="control-group">
+            <label>Y 轴水印数量</label>
+            <input type="number" id="imageYCount" value="" min="1" max="20" placeholder="留空使用偏移量">
+            <small style="color: #666; display: block; margin-top: 5px;">留空则使用 Y 轴偏移量</small>
           </div>
         </div>
       </div>
@@ -720,7 +740,9 @@
             rotate: parseInt(document.getElementById('rotate').value),
             xOffset: parseInt(document.getElementById('xOffset').value),
             yOffset: parseInt(document.getElementById('yOffset').value),
-            batch: document.getElementById('batch').checked
+            batch: document.getElementById('batch').checked,
+            xCount: document.getElementById('xCount').value ? parseInt(document.getElementById('xCount').value) : undefined,
+            yCount: document.getElementById('yCount').value ? parseInt(document.getElementById('yCount').value) : undefined
           });
           
           console.log('生成的配置对象:', config);
@@ -741,7 +763,9 @@
             rotate: parseInt(document.getElementById('imageRotate').value),
             xOffset: parseInt(document.getElementById('imageXOffset').value),
             yOffset: parseInt(document.getElementById('imageYOffset').value),
-            batch: document.getElementById('imageBatch').checked
+            batch: document.getElementById('imageBatch').checked,
+            xCount: document.getElementById('imageXCount').value ? parseInt(document.getElementById('imageXCount').value) : undefined,
+            yCount: document.getElementById('imageYCount').value ? parseInt(document.getElementById('imageYCount').value) : undefined
           });
         }
 

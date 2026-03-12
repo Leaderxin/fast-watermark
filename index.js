@@ -119,7 +119,9 @@ const defaultWatermarkConfig = {
   rotate: 0,
   x_offset: 10,
   y_offset: 10,
-  batch: false
+  batch: false,
+  x_count: undefined,
+  y_count: undefined
 };
 
 /**
@@ -134,6 +136,8 @@ const defaultWatermarkConfig = {
  * @param {number} [options.xOffset=10] - X轴偏移(像素)
  * @param {number} [options.yOffset=10] - Y轴偏移(像素)
  * @param {boolean} [options.batch=false] - 是否平铺
+ * @param {number} [options.xCount] - 平铺模式下的X轴水印数量（优先于 xOffset）
+ * @param {number} [options.yCount] - 平铺模式下的Y轴水印数量（优先于 yOffset）
  * @returns {Object}
  */
 function createTextWatermarkConfig(options = {}) {
@@ -147,7 +151,9 @@ function createTextWatermarkConfig(options = {}) {
     rotate: options.rotate || 0,
     x_offset: options.xOffset || options.x_offset || 10,
     y_offset: options.yOffset || options.y_offset || 10,
-    batch: options.batch || false
+    batch: options.batch || false,
+    x_count: options.xCount || options.x_count,
+    y_count: options.yCount || options.y_count
   };
 }
 
@@ -162,6 +168,8 @@ function createTextWatermarkConfig(options = {}) {
  * @param {number} [options.xOffset=10] - X轴偏移(像素)
  * @param {number} [options.yOffset=10] - Y轴偏移(像素)
  * @param {boolean} [options.batch=false] - 是否平铺
+ * @param {number} [options.xCount] - 平铺模式下的X轴水印数量（优先于 xOffset）
+ * @param {number} [options.yCount] - 平铺模式下的Y轴水印数量（优先于 yOffset）
  * @returns {Object}
  */
 function createImageWatermarkConfig(options = {}) {
@@ -178,7 +186,9 @@ function createImageWatermarkConfig(options = {}) {
     rotate: options.rotate || 0,
     x_offset: options.xOffset || options.x_offset || 10,
     y_offset: options.yOffset || options.y_offset || 10,
-    batch: options.batch || false
+    batch: options.batch || false,
+    x_count: options.xCount || options.x_count,
+    y_count: options.yCount || options.y_count
   };
 }
 
